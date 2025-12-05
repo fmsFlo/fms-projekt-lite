@@ -26,6 +26,7 @@ type TemplateConcept = {
   recommendationDelta?: number | null
   customTemplateHtml?: string | null
   notes?: string | null
+  calculationSnapshot?: string | null
 }
 
 export interface RetirementConceptTemplateAttachment {
