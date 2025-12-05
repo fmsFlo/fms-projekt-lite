@@ -222,7 +222,7 @@ const formatEuroValue = (value: number | null | undefined) => {
 }
 
 export function buildRetirementConceptTemplateData(
-  concept: TemplateConcept,
+  concept: TemplateConcept & { calculationSnapshot?: string | null },
   options: RenderOptions,
 ): RetirementConceptTemplateData {
   const buildAttachmentList = (category: string): RetirementConceptTemplateAttachment[] =>
@@ -261,10 +261,9 @@ export function buildRetirementConceptTemplateData(
   const privateAttachments = buildAttachmentList('private')
 
   let snapshot: CalculationSnapshot | null = null
-  const conceptWithSnapshot = concept as any
-  if (conceptWithSnapshot.calculationSnapshot && typeof conceptWithSnapshot.calculationSnapshot === 'string') {
+  if (concept.calculationSnapshot && typeof concept.calculationSnapshot === 'string') {
     try {
-      snapshot = JSON.parse(conceptWithSnapshot.calculationSnapshot) as CalculationSnapshot
+      snapshot = JSON.parse(concept.calculationSnapshot) as CalculationSnapshot
     } catch (error) {
       console.warn('Konnte calculationSnapshot nicht parsen:', error)
       snapshot = null
@@ -462,7 +461,7 @@ export function buildRetirementConceptTemplateData(
   }
 }
 
-export async function renderRetirementConceptHtml(concept: TemplateConcept, options: RenderOptions) {
+export async function renderRetirementConceptHtml(concept: TemplateConcept & { calculationSnapshot?: string | null }, options: RenderOptions) {
   const templatePath = path.join(
     process.cwd(),
     'templates',
