@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Versicherungsunterlagen anfordern - Login</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        
+        .login-title {
+            font-size: 1.8rem;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .login-subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1rem;
+        }
+        
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .login-input {
+            padding: 12px 16px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .login-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .login-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .error-message.show {
+            display: block;
+        }
+        
+        .password-hint {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-box">
+            <h1 class="login-title">Versicherungsunterlagen anfordern</h1>
+            <p class="login-subtitle">Bitte geben Sie das Passwort ein, um fortzufahren</p>
+            
+            <form class="login-form" id="loginForm">
+                <input type="password" id="password" class="login-input" placeholder="Passwort eingeben" required>
+                <button type="submit" class="login-btn">Anmelden</button>
+                <div class="error-message" id="errorMessage">Falsches Passwort. Bitte versuchen Sie es erneut.</div>
+                <div class="password-hint">Kontaktieren Sie den Administrator für das Passwort</div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Passwort-Konfiguration
+        const CORRECT_PASSWORD = 'versicherung2025'; // Ändern Sie dieses Passwort!
+        
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const password = document.getElementById('password').value;
+            const errorMessage = document.getElementById('errorMessage');
+            
+            if (password === CORRECT_PASSWORD) {
+                // Passwort korrekt - weiterleiten zur Hauptseite
+                window.location.href = 'main.html';
+            } else {
+                // Falsches Passwort
+                errorMessage.classList.add('show');
+                document.getElementById('password').style.borderColor = '#e74c3c';
+                
+                // Nach 3 Sekunden Fehlermeldung ausblenden
+                setTimeout(() => {
+                    errorMessage.classList.remove('show');
+                    document.getElementById('password').style.borderColor = '#e1e8ed';
+                }, 3000);
+            }
+        });
+        
+        // Enter-Taste für bessere UX
+        document.getElementById('password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+            }
+        });
+    </script>
+</body>
+</html>

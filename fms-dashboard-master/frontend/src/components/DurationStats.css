@@ -1,0 +1,82 @@
+/* Ultra-Professional Compact Duration Stats */
+
+.duration-compact {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.duration-header-compact {
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+
+.duration-title-compact {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.duration-grid-compact {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  flex: 1;
+  align-items: center;
+}
+
+.duration-metric-compact {
+  background: #1a1f2e;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  transition: background 0.15s ease;
+}
+
+.duration-metric-compact:hover {
+  background: #1f2535;
+}
+
+.duration-header-metric-compact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  width: 100%;
+}
+
+.duration-icon-compact {
+  font-size: 16px;
+  opacity: 0.5;
+}
+
+.duration-value-compact {
+  font-size: 28px;
+  font-weight: 700;
+  color: #e5e7eb;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  flex: 1;
+  text-align: right;
+}
+
+.duration-label-compact {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .duration-grid-compact {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

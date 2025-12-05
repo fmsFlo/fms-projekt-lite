@@ -1,0 +1,39 @@
+node_modules/
+.next/
+.vercel
+.DS_Store
+*.log
+
+# Environment variables
+.env.local
+.env*.local
+
+# Storage
+storage/
+storage/**
+storage-retirement-concepts/
+storage-retirement-concepts/**
+
+# Database
+*.db
+*.db-journal
+prisma/*.db
+prisma/*.db-journal
+dev.db
+new-server.log
+server.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+
+
+
+
+
+
+

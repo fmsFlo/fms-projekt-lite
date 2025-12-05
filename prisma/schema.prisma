@@ -1,0 +1,345 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  firstName String
+  lastName  String
+  email     String?
+  phone     String?
+  street    String?
+  houseNumber String?
+  city      String?
+  zip       String?
+  iban      String?
+  crmId     String?
+  isCompany Boolean  @default(false)  // ✅ Gibt an ob Unternehmen oder Person
+  companyName String?                  // ✅ Firmenname wenn isCompany = true
+  birthDate DateTime?                  // Geburtsdatum
+  profession String?                    // Beruf
+  employmentStatus String?              // angestellt, beamter, selbständig
+  salaryGrade String?                   // Besoldungsstufe (nur bei Beamten)
+  grvInsuranceStatus String?            // GRV-Versicherung: freiwillig-pflicht, nicht-versichert (nur bei Selbständigen)
+  
+  // Pipeline Management
+  nextCallDate DateTime?  // Nächstes Anrufdatum für Smart Views
+  callNotes    String?    // Notizen für Anrufe
+
+  contracts Contract[]
+  opportunities Opportunity[]
+  leads         Lead[]
+  retirementConcepts RetirementConcept[]
+}
+
+model ContractTemplate {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  name        String
+  slug        String   @unique
+  description String?
+  fields      String
+  category    String?  @default("Honorar Beratung")
+}
+
+model Contract {
+  id                String   @id @default(cuid())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  clientId          String
+  client            Client   @relation(fields: [clientId], references: [id])
+  templateSlug      String
+  variables         String
+  pdfFileName       String?
+  signedPdfFileName String?
+  
+  // Stripe Integration
+  stripeCustomerId String?
+  stripeMandateId  String?
+  stripeMandateStatus String? // pending, active, inactive, invalid
+  
+  // Sevdesk Integration
+  sevdeskInvoiceId String? // ID der erstellten Sevdesk-Rechnung
+  sevdeskInvoiceNumber String? // Rechnungsnummer von Sevdesk
+}
+
+model CompanySettings {
+  id                        String   @id @default(cuid())
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  
+  // Persönliche Kontaktdaten
+  personalName              String?
+  personalEmail             String?
+  personalStreet            String?
+  personalHouseNumber       String?
+  personalZip               String?
+  personalCity              String?
+  personalPhone             String?
+  personalWebsite           String?
+  
+  // Gewerbliche Kontaktdaten
+  companyName               String?
+  contactPerson             String?
+  companyEmail              String?
+  companyStreet             String?
+  companyHouseNumber        String?
+  companyZip                String?
+  companyCity               String?
+  companyPhone              String?
+  companyWebsite            String?
+  
+  // Abweichende Rechnungsadresse
+  billingStreet             String?
+  billingHouseNumber        String?
+  billingZip                String?
+  billingCity               String?
+  billingEmail              String?
+  
+  // Make Integration
+  makeWebhookUrl            String?
+  makeApiKey                String?
+  
+  // Close Integration
+  closeApiKey               String?
+  
+  // Branding
+  logoUrl                   String?
+  companySlogan             String?
+  
+  // Zahlungsinformationen
+  advisorIban               String?
+  paymentSubject            String?
+  creditorId                String? // SEPA Gläubiger-Identifikationsnummer
+  
+  // Stripe Integration
+  stripeSecretKey           String?
+  stripePublishableKey       String?
+  
+  // Sevdesk Integration
+  sevdeskApiToken           String?
+  sevdeskApiUrl             String? // Optional, Standard: https://my.sevdesk.de/api/v1
+}
+
+// Pipeline Management System
+model PipelinePhase {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  name        String   // z.B. "Lead", "Qualifiziert", "Angebot", "Verhandlung", "Abschluss"
+  slug        String   @unique // z.B. "lead", "qualified", "offer", "negotiation", "closed"
+  order       Int      @default(0) // Reihenfolge im Kanban Board
+  color       String?  // Hex-Farbe für die Spalte (z.B. "#3B82F6")
+  isActive    Boolean  @default(true)
+  type        String   @default("opportunity") // "lead" oder "opportunity"
+  description String?  // Beschreibung der Phase
+  probability Int?     // Wahrscheinlichkeit in % (0-100)
+  status      String?  // "open", "won", "lost" für Opportunity-Phasen
+  isDefault   Boolean  @default(false) // Standard-Phase für Leads
+  isConverted Boolean  @default(false) // Markiert konvertierte Leads
+  
+  opportunities Opportunity[]
+  leads         Lead[]
+}
+
+model Lead {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Basis-Informationen
+  firstName   String?
+  lastName    String?
+  email       String?
+  phone       String?
+  company     String?
+  
+  // Status
+  phaseId     String   // Aktuelle Lead-Phase
+  phase       PipelinePhase @relation(fields: [phaseId], references: [id])
+  
+  // Verknüpfung zu Client (optional, falls Lead konvertiert wurde)
+  clientId    String?
+  client      Client?  @relation(fields: [clientId], references: [id])
+  
+  // Weitere Felder
+  source      String?  // Quelle des Leads
+  notes       String?  // Notizen
+  nextActionDate DateTime?   // Nächstes Follow-up Datum
+  nextActionNote String?      // Notiz für nächstes Follow-up
+  
+  // Automation/Flow Felder
+  automationData String?     // JSON für Flow-Daten
+}
+
+model Opportunity {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Basis-Informationen
+  title       String   // Titel der Opportunity
+  description String?  // Beschreibung/Notizen
+  
+  // Status
+  phaseId     String   // Aktuelle Pipeline-Phase
+  phase       PipelinePhase @relation(fields: [phaseId], references: [id])
+  
+  // Kunden-Informationen (optional, kann auch standalone sein)
+  clientId    String?  // Optional: Verknüpfung zu bestehendem Client
+  client      Client?  @relation(fields: [clientId], references: [id])
+  
+  // Falls kein Client existiert, können diese Felder direkt gespeichert werden
+  firstName   String?
+  lastName    String?
+  email       String?
+  phone       String?
+  company     String?  // Firmenname falls vorhanden
+  
+  // Weitere Felder für Automation/Flows
+  estimatedValue Float?      // Geschätzter Wert
+  probability    Int?        // Wahrscheinlichkeit in % (0-100) - kann auch aus Phase übernommen werden
+  nextActionDate DateTime?   // Nächstes Follow-up Datum
+  nextActionNote String?      // Notiz für nächstes Follow-up
+  
+  // Automation/Flow Felder
+  automationData String?     // JSON für Flow-Daten
+  
+  // Air Call Integration (später)
+  airCallContactId String?   // Air Call Contact ID
+}
+
+// Rentenkonzept
+model RetirementConcept {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
+  
+  // Basis-Daten
+  birthDate           DateTime?  // Geburtsdatum
+  desiredRetirementAge Int?      // Gewünschtes Rentenalter (Standard: 67)
+  targetPensionNetto  Float?    // Wunschrente (Netto)
+  
+  // Renteninformation
+  hasCurrentPensionInfo Boolean?  // Hat aktuelle Renteninformation?
+  pensionAtRetirement  Float?     // Wert zum Rentenbeginn (wenn hasCurrentPensionInfo = true)
+  pensionIncrease     Float?     // Rentensteigerung (%)
+  
+  // Berechnungsparameter
+  inflationRate       Float?     // Inflationsrate (%)
+  
+  // Berechnete Werte
+  calculatedPensionAtRetirement Float? // Berechneter Rentenwert zur Rente (auf Basis Steigerung und Inflation)
+  
+  // Bestehende Vorsorge
+  existingProvisionData String?   // JSON: Array von Vorsorge-Objekten { type: string, amount: number }
+  totalExistingProvision Float?  // Gesamtsumme aller bestehenden Vorsorgen
+  totalPensionWithProvision Float? // Gesamtrente (Gesetzliche + Vorsorge)
+  calculatedTargetPension Float? // Gewünschte Rente hochgerechnet mit Inflation
+  
+  // Kapitalbedarf
+  lifeExpectancy       Int?      // Lebenserwartung (Jahre)
+  monthlySavings       Float?    // Monatlicher Sparbetrag (€)
+  returnRate           Float?    // Rendite (%)
+  withdrawalRate       Float?    // Rendite Entnahmephase (%)
+
+  // Sozialversicherungsannahmen
+  hasChildren          Boolean?  @default(true)
+  isCompulsoryInsured  Boolean?  @default(true)
+  kvBaseRate           Float?    @default(7.3)
+  kvAdditionalRate     Float?    @default(2.5)
+  kvContributionIncrease Float?  @default(0)
+
+  // Steuerannahmen
+  taxFilingStatus       String?  @default("single")
+  taxFreeAmount         Float?   @default(12096)
+  taxIncreaseRate       Float?   @default(0)
+  taxFreePercentage     Float?   @default(83.5) // 2025: 16.5% steuerfrei -> 83.5% steuerpflichtig
+  capitalGainsTaxRate   Float?   @default(25)
+  capitalGainsSoliRate  Float?   @default(5.5)
+  capitalGainsChurchRate Float?  @default(0)
+  capitalGainsAllowance Float?   @default(1000)
+  calculationSnapshot   String?
+  statutoryStrengths    String?
+  statutoryWeaknesses   String?
+  privateStrengths      String?
+  privateWeaknesses     String?
+  customTemplateHtml    String?
+  recommendationDelta   Float?
+  attachments           RetirementConceptAttachment[]
+  
+  notes               String?    // Notizen
+}
+
+model RetirementConceptAttachment {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  conceptId    String
+  category     String
+  filePath     String
+  fileName     String
+  originalName String
+  mimeType     String
+  size         Int
+
+  concept RetirementConcept @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+
+  @@index([conceptId, category])
+}
+
+model ServiceContact {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+  email     String?
+  address   String?
+  category  String?
+  phone     String?
+  notes     String?
+}
+
+model User {
+  id                String   @id @default(cuid())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  email             String   @unique
+  passwordHash      String
+  role              String   // 'admin' oder 'advisor'
+  name              String?
+  isActive          Boolean  @default(true)
+  resetToken        String?
+  resetTokenExpires DateTime?
+  visibleCategories String?  // JSON-Array der sichtbaren Kategorien (null = alle für Admin, [] = keine Honorarverträge für Berater)
+}
+
+// Altes Finanzkonzept-Model (für später, aktuell nicht verwendet)
+// model FinancialConcept {
+//   id          String   @id @default(cuid())
+//   createdAt   DateTime @default(now())
+//   updatedAt   DateTime @updatedAt
+//   clientId    String
+//   client      Client   @relation(fields: [clientId], references: [id])
+//   currentRente        Float?
+//   currentVorsorge     Float?
+//   renteWithIncrease   Float?
+//   taxDeductions       Float?
+//   socialDeductions    Float?
+//   totalRente          Float?
+//   rentenluecke        Float?
+//   wunschrente         Float?
+//   notes               String?
+// }
+

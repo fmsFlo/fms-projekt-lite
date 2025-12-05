@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    <meta name="robots" content="noindex, nofollow">
+    <meta http-equiv="Strict-Transport-Security" content="max-age=31536000; includeSubDomains">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>Versicherungsunterlagen anfordern</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header Section -->
+    <header class="header">
+        <div class="container">
+            <h1 class="title">Ihre Versicherungsunterlagen anfordern</h1>
+            <p class="subtitle">In nur 2 Minuten ein fertiges Schreiben an Ihre Versicherung.</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <!-- Form Section -->
+            <section class="form-section" id="formSection">
+                <div class="form-container">
+                    <h2 class="form-title">Versicherungsunterlagen anfordern</h2>
+                    <form id="insuranceForm" class="form">
+                        <div class="form-group">
+                            <label for="name" class="form-label">Name *</label>
+                            <input type="text" id="name" name="name" class="form-input" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="address" class="form-label">Adresse *</label>
+                            <textarea id="address" name="address" class="form-textarea" rows="3" required></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email" class="form-label">E-Mail-Adresse *</label>
+                            <input type="email" id="email" name="email" class="form-input" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="insuranceCompany" class="form-label">Name der Versicherungsgesellschaft *</label>
+                            <div class="autocomplete-container">
+                                <input type="text" id="insuranceCompany" name="insuranceCompany" class="form-input" autocomplete="off" required>
+                                <div id="insuranceSuggestions" class="suggestions-dropdown"></div>
+                            </div>
+                            <input type="hidden" id="insuranceEmail" name="insuranceEmail">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="policyNumber" class="form-label">Versicherungsschein-Nummer *</label>
+                            <input type="text" id="policyNumber" name="policyNumber" class="form-input" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Auswahl gewünschter Unterlagen</label>
+                            <div class="checkbox-group">
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="documents" value="ursprüngliches Versicherungsangebot mit allen wichtigen Daten">
+                                    <span class="checkmark"></span>
+                                    ursprüngliches Versicherungsangebot mit allen wichtigen Daten
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="documents" value="Ursprünglicher Versicherungsschein">
+                                    <span class="checkmark"></span>
+                                    Ursprünglicher Versicherungsschein
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="documents" value="aktuelle Standmitteilungen">
+                                    <span class="checkmark"></span>
+                                    aktuelle Standmitteilungen
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="documents" value="Versicherungsantrag">
+                                    <span class="checkmark"></span>
+                                    Versicherungsantrag
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="documents" value="Anschreiben, mit dem der Versicherungsschein übersandt wurde">
+                                    <span class="checkmark"></span>
+                                    Anschreiben, mit dem der Versicherungsschein übersandt wurde
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="documents" value="Versicherungsbedingungen">
+                                    <span class="checkmark"></span>
+                                    Versicherungsbedingungen
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="documents" value="Verbraucherinformationen (falls nicht in Versicherungsbedingungen enthalten)">
+                                    <span class="checkmark"></span>
+                                    Verbraucherinformationen (falls nicht in Versicherungsbedingungen enthalten)
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="documents" value="sämtliche Nachträge zum Versicherungsschein">
+                                    <span class="checkmark"></span>
+                                    sämtliche Nachträge zum Versicherungsschein
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="documents" value="sämtliche Standmitteilungen (bei fondsgebundenen Verträgen; bei klassischen Verträgen nur die letzte Standmitteilung)">
+                                    <span class="checkmark"></span>
+                                    sämtliche Standmitteilungen (bei fondsgebundenen Verträgen; bei klassischen Verträgen nur die letzte Standmitteilung)
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="documents" value="Abrechnungsschreiben (sofern Auszahlungen aufgrund Beendigung/Kündigung erfolgt sind)">
+                                    <span class="checkmark"></span>
+                                    Abrechnungsschreiben (sofern Auszahlungen aufgrund Beendigung/Kündigung erfolgt sind)
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="deadline" class="form-label">Frist</label>
+                            <input type="date" id="deadline" name="deadline" class="form-input">
+                        </div>
+
+                        <button type="submit" class="submit-btn">Schreiben erstellen</button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Confirmation Section (Hidden initially) -->
+            <section class="confirmation-section" id="confirmationSection" style="display: none;">
+                <div class="confirmation-container">
+                    <div class="success-icon">✓</div>
+                    <h2 class="confirmation-title">Ihr Schreiben ist fertig!</h2>
+                    <p class="confirmation-text">
+                        Wir haben Ihnen das fertige Schreiben per E-Mail zugeschickt. 
+                        Sie müssen es nur noch an Ihre Versicherung weiterleiten.
+                    </p>
+                    <button id="openEmailBtn" class="email-btn">Jetzt E-Mail öffnen</button>
+                    <button id="newRequestBtn" class="secondary-btn">Neue Anfrage erstellen</button>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p class="disclaimer">
+                Dieses Tool stellt lediglich ein Standardanschreiben zur Verfügung. 
+                Die Verantwortung für den Versand und die Inhalte liegt beim Nutzer. 
+                100% DSGVO-konform.
+            </p>
+            <div class="footer-links">
+                <a href="https://financemadesimple.de/impressum" target="_blank" class="footer-link">Impressum</a>
+                <span class="footer-separator">|</span>
+                <a href="https://financemadesimple.de/datenschutz" target="_blank" class="footer-link">Datenschutz</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

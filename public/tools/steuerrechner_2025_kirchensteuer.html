@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Einkommensteuer 2025 – Grundtarif mit Kirchensteuer (8%/9%)</title>
+<style>
+  :root { --bg:#0b0f14; --fg:#e8eef5; --muted:#9bb0c2; --card:#111823; --acc:#3aa0ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial; }
+  header { padding: 24px; border-bottom: 1px solid #223041; background: #0d131b; position: sticky; top:0; z-index:1; }
+  h1 { margin: 0 0 4px; font-size: 20px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  main { padding: 24px; display: grid; gap: 16px; max-width: 980px; margin: 0 auto; }
+  .card { background: var(--card); border: 1px solid #1a2533; border-radius: 16px; padding: 16px; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(12, 1fr); }
+  .grid > * { grid-column: span 12; }
+  @media (min-width: 800px){
+    .grid-3col > * { grid-column: span 4; }
+  }
+  label { display:block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  input[type=number], select {
+    width: 100%; padding: 10px 12px; background: #0c121a; color: var(--fg);
+    border: 1px solid #233243; border-radius: 10px; outline: none;
+  }
+  input[type=number]:focus, select:focus { border-color: var(--acc); }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .btn {
+    background: var(--acc); color: #001a2b; font-weight: 600; padding: 10px 14px;
+    border: 0; border-radius: 10px; cursor: pointer;
+  }
+  .btn.secondary { background: #182334; color: var(--fg); }
+  .out { display:grid; gap:8px; grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .kv { background:#0c121a; border:1px solid #233243; border-radius:12px; padding:12px; }
+  .kv b { display:block; font-size:12px; color: var(--muted); }
+  .kv span { font-size:18px; font-variant-numeric: tabular-nums; }
+  table { width:100%; border-collapse: collapse; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid #1b2736; text-align:right; font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align:left; }
+  tfoot td { font-weight: 600; }
+  .note { color: var(--muted); font-size: 12px; }
+  .pill { background:#0c121a; border:1px solid #233243; padding:6px 10px; border-radius:999px; font-size:12px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Einkommensteuer-Rechner 2025 (Grundtarif)</h1>
+    <div class="sub">Berechnet ESt nach §32a EStG 2025 und optional Kirchensteuer (8% / 9%). Solidaritätszuschlag ist <b>nicht</b> enthalten.</div>
+  </header>
+  <main>
+    <section class="card">
+      <div class="grid grid-3col">
+        <div>
+          <label for="zve">zu versteuerndes Einkommen (zvE) in €</label>
+          <input id="zve" type="number" inputmode="numeric" min="0" step="1" value="50000" />
+        </div>
+        <div>
+          <label for="kist">Kirchensteuer</label>
+          <select id="kist">
+            <option value="0">Keine</option>
+            <option value="0.08">8 % (z. B. BY, BW)</option>
+            <option value="0.09">9 % (übrige Länder)</option>
+          </select>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <div class="row">
+            <button class="btn" id="calcBtn">Berechnen</button>
+            <button class="btn secondary" id="resetBtn">Zurücksetzen</button>
+            <span class="pill" id="zone"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="out">
+        <div class="kv"><b>ESt (ohne KiSt)</b><span id="estOut">–</span></div>
+        <div class="kv"><b>Gesamt inkl. KiSt</b><span id="totalOut">–</span></div>
+        <div class="kv"><b>Ø-Steuersatz (ohne KiSt)</b><span id="avgOut">–</span></div>
+        <div class="kv"><b>Ø-Steuersatz (inkl. KiSt)</b><span id="avgKOut">–</span></div>
+      </div>
+      <p class="note">Rundung auf volle Euro gemäß Gesetz. Ø = Steuer ÷ zvE.</p>
+    </section>
+
+    <section class="card">
+      <h3 style="margin:0 0 8px">Formel (für Cursor/Dev)</h3>
+      <pre style="white-space:pre-wrap; font-size:13px; background:#0c121a; border:1px solid #223041; padding:12px; border-radius:10px;"><code>function est2025Single(zve){
+  const x = Math.floor(Math.max(0, zve));
+  let est = 0;
+  if (x &lt;= 12096) est = 0;
+  else if (x &lt;= 17443) {
+    const y = (x - 12096) / 10000;
+    est = (932.30 * y + 1400) * y;
+  } else if (x &lt;= 68480) {
+    const z = (x - 17443) / 10000;
+    est = (176.64 * z + 2397) * z + 1015.13;
+  } else if (x &lt;= 277825) {
+    est = 0.42 * x - 10911.92;
+  } else {
+    est = 0.45 * x - 19246.67;
+  }
+  return Math.round(est);
+}</code></pre>
+      <div class="note">Kirchensteuer wird als fester Prozentsatz der Einkommensteuer berechnet (8% bzw. 9%).</div>
+    </section>
+
+    <section class="card">
+      <h3 style="margin:0 0 8px">Schnellcheck (Beispiele)</h3>
+      <table id="examples">
+        <thead>
+          <tr><th>zvE</th><th>ESt</th><th>ESt + KiSt 8%</th><th>ESt + KiSt 9%</th><th>Ø%</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <div class="note">Quelle Tarifformel: §32a EStG 2025. Grundfreibetrag 12.096 €. Soli &amp; Kappungen/Sonderfälle bei Kirchensteuer sind nicht berücksichtigt.</div>
+    </section>
+  </main>
+
+<script>
+function euro(n){ return new Intl.NumberFormat('de-DE', { style:'currency', currency:'EUR', maximumFractionDigits:0 }).format(n); }
+function pct(n){ return (Math.round(n * 100) / 100).toFixed(2) + ' %'; }
+
+function est2025Single(zve){
+  const x = Math.floor(Math.max(0, zve));
+  let est = 0;
+  if (x <= 12096) est = 0;
+  else if (x <= 17443) {
+    const y = (x - 12096) / 10000;
+    est = (932.30 * y + 1400) * y;
+  } else if (x <= 68480) {
+    const z = (x - 17443) / 10000;
+    est = (176.64 * z + 2397) * z + 1015.13;
+  } else if (x <= 277825) {
+    est = 0.42 * x - 10911.92;
+  } else {
+    est = 0.45 * x - 19246.67;
+  }
+  return Math.round(est);
+}
+
+function zoneOf(x){
+  if (x <= 12096) return 'Zone 1 (0%)';
+  if (x <= 17443) return 'Zone 2 (~14–24%)';
+  if (x <= 68480) return 'Zone 3 (~24–42%)';
+  if (x <= 277825) return 'Zone 4 (42%)';
+  return 'Zone 5 (45%)';
+}
+
+function calc(){
+  const zve = Number(document.getElementById('zve').value || 0);
+  const k = Number(document.getElementById('kist').value || 0);
+  const est = est2025Single(zve);
+  const kist = Math.round(est * k);
+  const total = est + kist;
+  const avg = zve > 0 ? (est / zve * 100) : 0;
+  const avgK = zve > 0 ? (total / zve * 100) : 0;
+
+  document.getElementById('estOut').textContent   = euro(est);
+  document.getElementById('totalOut').textContent = euro(total);
+  document.getElementById('avgOut').textContent   = pct(avg);
+  document.getElementById('avgKOut').textContent  = pct(avgK);
+  document.getElementById('zone').textContent = zoneOf(zve);
+}
+
+function fillExamples(){
+  const samples = [15000, 30000, 60000, 100000, 150000, 300000];
+  const tbody = document.querySelector('#examples tbody');
+  tbody.innerHTML = '';
+  for (const s of samples){
+    const est = est2025Single(s);
+    const e8 = est + Math.round(est * 0.08);
+    const e9 = est + Math.round(est * 0.09);
+    const avg = s > 0 ? (est / s * 100) : 0;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${euro(s)}</td><td>${euro(est)}</td><td>${euro(e8)}</td><td>${euro(e9)}</td><td style="text-align:right">${pct(avg)}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+document.getElementById('calcBtn').addEventListener('click', calc);
+document.getElementById('resetBtn').addEventListener('click', () => {
+  document.getElementById('zve').value = 50000;
+  document.getElementById('kist').value = '0';
+  calc();
+});
+fillExamples();
+calc();
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+# Environment Variables
+backend/.env
+backend/ENV_data.env
+*.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Dependencies
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Database
+backend/database/*.db
+backend/database/*.db-journal
+backend/database/*.db-wal
+backend/database/*.db-shm
+
+# Build outputs
+frontend/build/
+frontend/dist/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python (Calendly Dashboard)
+calendly-dashboard (Python)/__pycache__/
+calendly-dashboard (Python)/*.pyc
+calendly-dashboard (Python)/*.pyo
+calendly-dashboard (Python)/*.pyd
+calendly-dashboard (Python)/venv/
+calendly-dashboard (Python)/env/
+calendly-dashboard (Python)/.venv/
+calendly-dashboard (Python)/*.egg-info/
+calendly-dashboard (Python)/dist/
+calendly-dashboard (Python)/build/
+
+# Calendly Data (kann sensible Daten enthalten)
+calendly-dashboard (Python)/calendly_events.json
+
+# Temporary files
+*.tmp
+*.temp
+
+

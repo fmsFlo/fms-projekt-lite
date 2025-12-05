@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beratungsprotokoll</title>
+    <style type="text/css">
+        /* Reset und Grundeinstellungen */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            font-family: Arial, sans-serif;
+            font-size: 11pt;
+            line-height: 1.5;
+            color: #000000;
+            background-color: #ffffff;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Seiten-Setup für Druck */
+        @page {
+            size: A4;
+            margin: 15mm 15mm 20mm 15mm;
+        }
+        
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            
+            .page {
+                page-break-after: always;
+                page-break-inside: avoid;
+                margin: 0;
+                padding: 0;
+            }
+            
+            .page:last-child {
+                page-break-after: auto;
+            }
+        }
+        
+        /* Container */
+        .document-container {
+            max-width: 100%;
+            width: 100%;
+            margin: 0 auto;
+            background: white;
+        }
+        
+        @media screen {
+            .document-container {
+                max-width: 210mm;
+                padding: 15mm;
+                margin: 0 auto;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            }
+        }
+        
+        .page {
+            width: 100%;
+            max-width: 180mm;
+            padding: 15mm;
+            position: relative;
+            margin: 0 auto;
+        }
+        
+        @media print {
+            .page {
+                padding: 0;
+                max-width: 100%;
+            }
+        }
+        
+        /* Header - Optimiert */
+        .header {
+            position: relative;
+            margin-bottom: 25px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #000;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        
+        .header h1 {
+            font-size: 16pt;
+            font-weight: bold;
+            margin: 0;
+            padding: 0;
+            flex: 1;
+        }
+        
+        .vermittlerstempel-box {
+            width: 180px;
+            min-height: 80px;
+            max-height: 120px;
+            border: 1px solid #000;
+            padding: 5px;
+            text-align: center;
+            flex-shrink: 0;
+            margin-left: 15px;
+        }
+        
+        .vermittlerstempel-label {
+            font-size: 9pt;
+            margin-bottom: 3px;
+        }
+        
+        .vermittlerstempel-content {
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .vermittlerstempel-content img {
+            max-width: 160px;
+            max-height: 100px;
+            object-fit: contain;
+        }
+        
+        /* Kundeninfo */
+        .customer-info {
+            margin: 20px 0;
+        }
+        
+        .customer-info-line {
+            margin: 6px 0;
+            border-bottom: 1px solid #000;
+            padding-bottom: 2px;
+            display: flex;
+        }
+        
+        .customer-info-label {
+            font-weight: bold;
+            width: 80px;
+            flex-shrink: 0;
+        }
+        
+        .customer-info-value {
+            flex-grow: 1;
+            word-wrap: break-word;
+        }
+        
+        /* Sections */
+        .section {
+            margin: 20px 0;
+        }
+        
+        .section-title {
+            font-size: 12pt;
+            font-weight: bold;
+            margin: 18px 0 10px 0;
+        }
+        
+        .subsection-title {
+            font-size: 11pt;
+            margin: 12px 0 6px 0;
+        }
+        
+        /* Textboxen mit automatischer Anpassung */
+        .text-box {
+            border: 1px solid #000;
+            min-height: 110px;
+            padding: 10px;
+            margin: 10px 0;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 11pt;
+            line-height: 1.5;
+        }
+        
+        .text-box-small {
+            border: 1px solid #000;
+            min-height: 80px;
+            padding: 10px;
+            margin: 10px 0;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 11pt;
+            line-height: 1.5;
+        }
+        
+        .text-box-large {
+            border: 1px solid #000;
+            min-height: 160px;
+            padding: 10px;
+            margin: 10px 0;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 11pt;
+            line-height: 1.5;
+        }
+        
+        /* Automatische Schriftverkleinerung bei viel Text */
+        .text-box.auto-size,
+        .text-box-small.auto-size,
+        .text-box-large.auto-size {
+            font-size: clamp(8pt, 11pt, 11pt);
+        }
+        
+        /* Checkboxen */
+        .checkbox-section {
+            margin: 12px 0;
+        }
+        
+        .checkbox-line {
+            margin: 6px 0;
+            line-height: 1.5;
+        }
+        
+        .checkbox {
+            font-family: "DejaVu Sans", Arial, sans-serif;
+            font-size: 11pt;
+            margin-right: 5px;
+        }
+        
+        .checkbox-indent {
+            margin-left: 25px;
+        }
+        
+        /* Marktuntersuchung */
+        .market-research {
+            margin: 20px 0;
+        }
+        
+        .market-research-title {
+            font-size: 12pt;
+            font-weight: bold;
+            margin: 18px 0 10px 0;
+        }
+        
+        .insurer-lines {
+            margin: 8px 0 8px 25px;
+        }
+        
+        .insurer-line {
+            border-bottom: 1px solid #000;
+            min-height: 22px;
+            margin: 4px 0;
+            word-wrap: break-word;
+        }
+        
+        /* Unterschriften */
+        .signature-section {
+            margin-top: 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 10px;
+        }
+        
+        .signature-field {
+            flex: 1;
+            text-align: center;
+        }
+        
+        .signature-line {
+            border-bottom: 1px solid #000;
+            min-height: 35px;
+            margin-bottom: 4px;
+        }
+        
+        .signature-label {
+            font-size: 9pt;
+        }
+        
+        /* Seitenumbruch */
+        .page-break {
+            page-break-before: always;
+        }
+        
+        /* Horizontale Linie */
+        hr {
+            border: none;
+            border-top: 1px solid #000;
+            margin: 15px 0;
+        }
+        
+        /* Zusätzliche Absicherung gegen Overflow */
+        * {
+            max-width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="document-container">
+        <!-- SEITE 1 -->
+        <div class="page">
+            <!-- Header mit Vermittlerstempel -->
+            <div class="header">
+                <h1>Beratungsprotokoll</h1>
+                <div class="vermittlerstempel-box">
+                    <div class="vermittlerstempel-label">Vermittlerstempel</div>
+                    <div class="vermittlerstempel-content">
+                        {{#if companySettings.logoUrl}}
+                        <img src="{{companySettings.logoUrl}}" alt="Logo" />
+                        {{/if}}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Kundeninformation -->
+            <div class="customer-info">
+                <div class="customer-info-line">
+                    <span class="customer-info-label">Kunde:</span>
+                    <span class="customer-info-value">{{customerName}}</span>
+                </div>
+                <div class="customer-info-line">
+                    <span class="customer-info-label">Anschrift:</span>
+                    <span class="customer-info-value">{{customerAddress}}</span>
+                </div>
+            </div>
+            
+            <!-- Section 1: Wünsche und Bedürfnisse -->
+            <div class="section">
+                <h2 class="section-title">1. Wünsche und Bedürfnisse des Kunden</h2>
+                
+                <div class="subsection-title">1.1 Kundenwünsche / Anlass der Beratung</div>
+                <div class="text-box auto-size">{{customerWishes}}</div>
+                
+                <div class="subsection-title">1.2 Kundenbedarf</div>
+                <div class="text-box auto-size">{{customerNeeds}}</div>
+            </div>
+            
+            <!-- Section 2: Rat - Begründung - Kundenentscheidung -->
+            <div class="section">
+                <h2 class="section-title">2. Rat – Begründung – Kundenentscheidung</h2>
+                
+                <div class="subsection-title">2.1 Risikobewertung / Komplexität</div>
+                <div class="text-box-large auto-size">{{riskAssessment}}</div>
+                
+                <div class="subsection-title">2.2 In Betracht kommende Versicherungsarten</div>
+                <div class="text-box-large auto-size">{{insuranceTypes}}</div>
+            </div>
+        </div>
+        
+        <!-- SEITE 2 -->
+        <div class="page page-break">
+            <!-- Fortsetzung Section 2 -->
+            <div class="section">
+                <div class="subsection-title">2.3 Rat und Begründung</div>
+                <div class="text-box-large auto-size">{{adviceAndReasoning}}</div>
+                
+                <div class="subsection-title">2.4 Geeignetheit und Angemessenheit (nur für Versicherungsanlageprodukte)</div>
+                <div class="checkbox-section">
+                    <p style="margin-bottom: 8px;">Auf Basis einer ausführlichen Risikoanalyse ist das Produkt für den Kunden</p>
+                    <div class="checkbox-line">
+                        <span class="checkbox">{{#if suitabilitySuitable}}☑{{else}}☐{{/if}}</span> geeignet und angemessen.
+                    </div>
+                    <div class="checkbox-line">
+                        <span class="checkbox">{{#if suitabilityNotSuitable}}☑{{else}}☐{{/if}}</span> nicht geeignet oder nicht angemessen.
+                    </div>
+                    <div class="checkbox-line checkbox-indent">
+                        Der Kunde möchte das Produkt jedoch trotzdem erwerben.
+                    </div>
+                    <div class="checkbox-line">
+                        <span class="checkbox">{{#if suitabilityAttached}}☑{{else}}☐{{/if}}</span> Eine detaillierte Geeignetheits- und Angemessenheitsprüfung ist dem Beratungsprotokoll als Anhang beigefügt.
+                    </div>
+                </div>
+                
+                <div class="subsection-title">2.5 Kundenentscheidung</div>
+                <div class="checkbox-section">
+                    <p style="margin-bottom: 8px;">Der Kunde folgt dem Rat des Vermittlers</p>
+                    <div class="checkbox-line">
+                        <span class="checkbox">{{#if customerDecisionFull}}☑{{else}}☐{{/if}}</span> vollständig.
+                    </div>
+                    <div class="checkbox-line">
+                        <span class="checkbox">{{#if customerDecisionPartial}}☑{{else}}☐{{/if}}</span> nicht/nicht vollständig.
+                    </div>
+                    {{#if customerDecisionPartial}}
+                    <p style="margin: 12px 0 4px 0;">Der Kunde folgt dem Rat des Vermittlers nicht/nicht vollständig, weil</p>
+                    <div class="text-box-small auto-size">{{customerDecisionReason}}</div>
+                    {{/if}}
+                </div>
+            </div>
+            
+            <!-- Section 3: Marktuntersuchung -->
+            <div class="market-research">
+                <h2 class="market-research-title">Marktuntersuchung</h2>
+                
+                <div class="checkbox-section">
+                    <div class="checkbox-line">
+                        <span class="checkbox">{{#if marketResearchObjective}}☑{{else}}☐{{/if}}</span> Der Versicherungsmakler stützt seinen Rat auf eine objektive, ausgewogene Marktuntersuchung.
+                    </div>
+                    
+                    <div class="checkbox-line" style="margin-top: 12px;">
+                        <span class="checkbox">{{#if marketResearchBroker}}☑{{else}}☐{{/if}}</span> Der Versicherungsmakler
+                        <span style="margin-left: 40px;"><span class="checkbox">{{#if marketResearchMultiAgent}}☑{{else}}☐{{/if}}</span> Der Mehrfachgeneralagent</span>
+                    </div>
+                    <div class="checkbox-line checkbox-indent">
+                        stützt seinen Rat auf folgende Versicherer:
+                    </div>
+                    
+                    <div class="insurer-lines">
+                        <div class="insurer-line">{{marketResearchInsurers}}</div>
+                        <div class="insurer-line"></div>
+                    </div>
+                    
+                    <div class="checkbox-line" style="margin-top: 12px;">
+                        <span class="checkbox">{{#if marketResearchLimited}}☑{{else}}☐{{/if}}</span> stützt seinen Rat auf eine beschränkte Anzahl von Versicherern. Der Kunde hat von seinem Recht, die Namen der dem Rat zu Grunde gelegten Versicherer zu verlangen, <strong>keinen</strong> Gebrauch gemacht.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Zusatzhinweis -->
+            <div class="section" style="margin-top: 20px;">
+                <div class="text-box" style="font-weight: bold; min-height: 100px;">
+                    Der Kunde bestätigt, dass er die Funktionsweise des Produkts verstanden hat und ihm die Chancen sowie Risiken (inkl. Kapitalverlustrisiko bei Fondsanlagen) bewusst sind. Ihm ist bekannt, dass die steuerliche Behandlung von seinen persönlichen Verhältnissen abhängt.
+                </div>
+            </div>
+            
+            <!-- Unterschriften -->
+            <div class="signature-section" style="margin-top: 50px;">
+                <div class="signature-field">
+                    <div class="signature-line"></div>
+                    <div class="signature-label">Ort, Datum</div>
+                </div>
+                <div class="signature-field">
+                    <div class="signature-line"></div>
+                    <div class="signature-label">Kunde</div>
+                </div>
+                <div class="signature-field">
+                    <div class="signature-line"></div>
+                    <div class="signature-label">Vermittler</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

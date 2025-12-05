@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Test Template</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    @page {
+      size: A4;
+      margin: 0;
+    }
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.65;
+      color: #2d3748;
+      background: #fff;
+      padding: 40px 50px;
+    }
+    
+    .header {
+      border-bottom: 3px solid #1e3a8a;
+      padding-bottom: 20px;
+      margin-bottom: 40px;
+    }
+    
+    .header h1 {
+      font-size: 24pt;
+      color: #1e3a8a;
+      font-weight: 700;
+    }
+    
+    .contract-info {
+      background: #f7fafc;
+      border-left: 4px solid #3b82f6;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .contract-info p {
+      margin-bottom: 8px;
+    }
+    
+    .contract-info strong {
+      display: inline-block;
+      min-width: 150px;
+      color: #4a5568;
+    }
+    
+    .signature-area {
+      margin-top: 80px;
+      padding-top: 30px;
+      border-top: 2px solid #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Test Vertrag</h1>
+  </div>
+  
+  <div class="contract-info">
+    <p><strong>Kunde:</strong> {{client.firstName}} {{client.lastName}}</p>
+    <p><strong>Adresse:</strong> {{client.street}} {{client.houseNumber}}, {{client.zip}} {{client.city}}</p>
+    <p><strong>E-Mail:</strong> {{client.email}}</p>
+    <p><strong>Telefon:</strong> {{client.phone}}</p>
+  </div>
+  
+  <div class="contract-info">
+    <p><strong>Produktanbieter:</strong> {{productProvider}}</p>
+    <p><strong>Betrag:</strong> {{amountEUR}} €</p>
+    <p><strong>Buchungsbeginn:</strong> {{bookingStart}}</p>
+  </div>
+  
+  <div class="signature-area">
+    <p><strong>Ort, Datum:</strong> {{date}}</p>
+    <p><strong>Unterschrift:</strong> ________________</p>
+  </div>
+</body>
+</html>
+
+
+
+

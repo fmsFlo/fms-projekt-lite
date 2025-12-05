@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { font-family: 'Arial', sans-serif; font-size: 12pt; line-height: 1.45; color: #111; }
+      .address-block { margin-bottom: 24px; }
+      .signature { margin-top: 48px; }
+      .meta { margin-bottom: 16px; font-size: 10pt; color: #555; }
+    </style>
+  </head>
+  <body>
+    <div class="address-block">
+      <strong>{{client.firstName}} {{client.lastName}}</strong><br />
+      {{client.street}} {{client.houseNumber}}<br />
+      {{client.zip}} {{client.city}}
+    </div>
+
+    <div class="address-block">
+      <strong>{{recipientCompany}}</strong><br />
+      {{recipientAddress}}
+    </div>
+
+    <div class="meta">
+      {{client.city}}, den {{date}}
+    </div>
+
+    {{#if subject}}
+      <h2>{{subject}}</h2>
+    {{/if}}
+
+    <p>Sehr geehrte Damen und Herren{{#if contactPerson}},<br />{{contactPerson}}{{/if}},</p>
+
+    {{#if policyNumber}}
+      <p><strong>Vertrags-/Policennummer:</strong> {{policyNumber}}</p>
+    {{/if}}
+
+    <p>{{customBody}}</p>
+
+    <div class="signature">
+      <p>Mit freundlichen Grüßen</p>
+      <p>{{client.firstName}} {{client.lastName}}</p>
+    </div>
+  </body>
+</html>
+
+
+
+
+
+
+
+

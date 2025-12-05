@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * { 
+        box-sizing: border-box; 
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        font-size: 11pt;
+        line-height: 1.5;
+        color: #000;
+        padding: 25mm 25mm 20mm 25mm;
+        max-width: 210mm;
+      }
+      
+      /* Empfängerblock links */
+      .recipient-block {
+        margin-bottom: 12mm;
+        line-height: 1.4;
+      }
+      
+      /* Absender rechts oben */
+      .sender-address {
+        text-align: right;
+        margin-bottom: 10mm;
+        line-height: 1.4;
+      }
+      
+      /* Datum rechts */
+      .date-line {
+        text-align: right;
+        margin-bottom: 12mm;
+      }
+      
+      /* Betreff - fett */
+      .subject {
+        font-weight: bold;
+        margin-bottom: 8mm;
+      }
+      
+      /* Absätze */
+      p {
+        margin-bottom: 5mm;
+        text-align: justify;
+      }
+      
+      p.no-justify {
+        text-align: left;
+      }
+      
+      /* Unterschriftenbereich */
+      .signature-area {
+        margin-top: 15mm;
+      }
+      
+      .signature-area p {
+        margin-bottom: 3mm;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Empfänger -->
+    <div class="recipient-block">
+      {{recipientCompany}}<br>
+      {{recipientAddress}}{{#if recipientEmail}}<br>
+      {{recipientEmail}}{{/if}}
+    </div>
+    
+    <!-- Absender rechts -->
+    <div class="sender-address">
+      {{client.firstName}} {{client.lastName}}<br>
+      {{#if client.street}}{{client.street}} {{client.houseNumber}}<br>{{/if}}
+      {{#if client.zip}}{{client.zip}} {{client.city}}{{/if}}
+    </div>
+    
+    <!-- Datum rechts -->
+    <div class="date-line">
+      {{#if client.city}}{{client.city}}, {{/if}}den {{date}}
+    </div>
+    
+    <!-- Betreff -->
+    <div class="subject">
+      Beitragsänderung Vertragsnummer: {{policyNumber}}
+    </div>
+    
+    <!-- Anrede -->
+    <p class="no-justify">
+      Sehr geehrte Damen und Herren{{#if contactPerson}},<br>{{contactPerson}}{{/if}},
+    </p>
+    
+    <!-- Haupttext -->
+    <p>
+      hiermit beantrage ich, den oben genannten Vertrag ab dem {{effectiveDate}} mit dem neuen Beitrag fortzuführen.
+    </p>
+    
+    <!-- Gewünschter Beitrag - sauber formatiert -->
+    <p class="no-justify">
+      <strong>Gewünschter Beitrag ab dem {{effectiveDate}}:</strong><br>
+      {{reducedAmount}} EUR monatlich.
+    </p>
+    
+    {{#if customBody}}
+      <p>{{customBody}}</p>
+    {{/if}}
+    
+    <p>
+      Bitte senden Sie mir eine schriftliche Bestätigung über die Beitragsänderung innerhalb der gesetzlichen Frist bis zum {{responseDeadline}}.
+    </p>
+    
+    <!-- Grußformel und Unterschrift -->
+    <div class="signature-area">
+      <p class="no-justify">Mit freundlichen Grüßen</p>
+    </div>
+    
+    <!-- Name -->
+    <p class="no-justify" style="margin-top: 20mm;">
+      {{client.firstName}} {{client.lastName}}
+    </p>
+  </body>
+</html>

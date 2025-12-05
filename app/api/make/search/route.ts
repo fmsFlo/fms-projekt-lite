@@ -1,0 +1,97 @@
+import { NextResponse } from 'next/server'
+import { z } from 'zod'
+import { prisma } from '@/lib/prisma'
+
+const schema = z.object({ query: z.string().min(1) })
+
+export async function POST(req: Request) {
+  try {
+    const input = schema.parse(await req.json())
+    
+    // Hole Make-Webhook-URL aus Einstellungen
+    const settings = await prisma.companySettings.findFirst()
+    const makeWebhookUrl = settings?.makeWebhookUrl || process.env.MAKE_WEBHOOK_URL
+    
+    if (makeWebhookUrl) {
+      try {
+        // Rufe Make-Webhook auf
+        const response = await fetch(makeWebhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(settings?.makeApiKey && { 'Authorization': `Bearer ${settings.makeApiKey}` })
+          },
+          body: JSON.stringify({ query: input.query }),
+          signal: AbortSignal.timeout(10000) // 10 Sekunden Timeout
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          console.log('📥 Make Raw Response:', JSON.stringify(data, null, 2))
+          
+          // Erwarte Format: { results: [...] } oder { clients: [...] }
+          // Manchmal gibt Make ein Array direkt zurück
+          if (Array.isArray(data)) {
+            console.log('✅ Make gibt Array direkt zurück')
+            return NextResponse.json({ results: data })
+          }
+          
+          if (data.results) {
+            console.log('✅ Make gibt {results: [...]} zurück')
+            return NextResponse.json({ results: data.results })
+          }
+          
+          console.log('⚠️ Unbekanntes Format von Make:', data)
+          return NextResponse.json(data)
+        } else {
+          console.error('❌ Make Response nicht OK:', response.status, await response.text())
+        }
+      } catch (makeError) {
+        console.error('Make API Error:', makeError)
+        // Fallback zu Mock-Daten bei Fehler
+      }
+    }
+    
+    // Fallback: Mock-Daten wenn Make nicht konfiguriert oder Fehler
+    // Vollständige Daten direkt bei der Suche!
+    const mockResults = [
+      { 
+        id: 'mock-1', 
+        firstName: 'Max', 
+        lastName: 'Mustermann', 
+        email: 'max@example.com',
+        phone: '+49 170 1234567',
+        street: 'Hauptstr.',
+        houseNumber: '10',
+        zip: '12345',
+        city: 'Berlin',
+        iban: 'DE12 3456 7890 1234 5678 90',
+        crmId: 'CRM-001' 
+      },
+      { 
+        id: 'mock-2', 
+        firstName: 'Erika', 
+        lastName: 'Musterfrau', 
+        email: 'erika@example.com',
+        phone: '+49 171 9876543',
+        street: 'Nebenweg',
+        houseNumber: '5',
+        zip: '20095',
+        city: 'Hamburg',
+        iban: 'DE98 7654 3210 9876 5432 10',
+        crmId: 'CRM-002' 
+      }
+    ]
+    const filtered = mockResults.filter(c => {
+      const fullName = `${c.firstName} ${c.lastName}`.toLowerCase()
+      return fullName.includes(input.query.toLowerCase()) || c.email.toLowerCase().includes(input.query.toLowerCase())
+    })
+    return NextResponse.json({ results: filtered })
+  } catch (err: any) {
+    if (err?.name === 'ZodError') {
+      return NextResponse.json({ message: 'Ungültige Eingabe', issues: err.issues }, { status: 400 })
+    }
+    console.error(err)
+    return NextResponse.json({ message: 'Interner Fehler' }, { status: 500 })
+  }
+}

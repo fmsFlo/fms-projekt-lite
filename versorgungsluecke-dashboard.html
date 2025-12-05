@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Versorgungslücken-Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        background: radial-gradient(circle at 0% -20%, #2d4ccf 0%, #091133 55%, #050612 100%);
+        color: #f5f7ff;
+            min-height: 100vh;
+        padding: 48px 24px 72px;
+        display: flex;
+        justify-content: center;
+      }
+
+      .layout {
+        max-width: 1040px;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 40px;
+      }
+
+      .parameter-panel {
+        border-radius: 32px;
+        background: linear-gradient(135deg, rgba(16, 28, 64, 0.92), rgba(10, 22, 54, 0.9));
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        padding: 28px 32px;
+        box-shadow: 0 28px 60px rgba(5, 12, 40, 0.45);
+      }
+
+      .parameter-panel h2 {
+        font-size: 18px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        font-weight: 600;
+        color: rgba(215, 224, 255, 0.78);
+        margin-bottom: 22px;
+      }
+
+      .slider-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 22px;
+      }
+
+      .slider-group {
+        background: rgba(6, 14, 35, 0.65);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 18px;
+        padding: 18px 20px;
+      }
+
+      .slider-group label {
+        display: block;
+        font-size: 12px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: rgba(221, 230, 255, 0.7);
+        margin-bottom: 10px;
+      }
+
+      .slider-group input[type='range'] {
+        width: 100%;
+        accent-color: #3b82f6;
+      }
+
+      .slider-group .value-row {
+            display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: rgba(221, 230, 255, 0.6);
+        margin-top: 6px;
+      }
+
+      .hero {
+        position: relative;
+        border-radius: 32px;
+        background: linear-gradient(135deg, rgba(21, 38, 92, 0.95), rgba(8, 19, 57, 0.92));
+        padding: 44px 48px;
+        overflow: hidden;
+        box-shadow: 0 40px 70px rgba(3, 12, 40, 0.45);
+      }
+
+      .hero::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 20% -10%, rgba(103, 166, 255, 0.35), transparent 60%),
+          radial-gradient(circle at 90% 10%, rgba(77, 255, 234, 0.25), transparent 55%),
+          radial-gradient(circle at 50% 110%, rgba(125, 211, 252, 0.1), transparent 60%);
+        pointer-events: none;
+      }
+
+      .hero-content {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 36px;
+        align-items: start;
+      }
+
+      .hero h1 {
+        font-size: 36px;
+        font-weight: 600;
+        letter-spacing: -0.03em;
+        margin-bottom: 16px;
+      }
+
+      .hero p.subtitle {
+        font-size: 16px;
+        color: rgba(214, 226, 255, 0.85);
+        max-width: 460px;
+      }
+
+      .tag-row {
+        margin-top: 22px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .tag-row span {
+        padding: 8px 16px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(255, 255, 255, 0.08);
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .cta-row {
+        margin-top: 26px;
+            display: flex;
+            align-items: center;
+        gap: 18px;
+        flex-wrap: wrap;
+      }
+
+      .cta-button {
+        padding: 12px 28px;
+        border-radius: 999px;
+        border: none;
+        background: #ffffff;
+        color: #0f172a;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        box-shadow: 0 22px 40px rgba(0, 0, 0, 0.35);
+      }
+
+      .cta-meta {
+        font-size: 13px;
+        color: rgba(230, 236, 255, 0.65);
+      }
+
+      .preview-card {
+        border-radius: 28px;
+        background: linear-gradient(140deg, rgba(255, 255, 255, 0.14), rgba(164, 196, 255, 0.12));
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 32px;
+        box-shadow: 0 26px 60px rgba(7, 15, 35, 0.4);
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+
+      .preview-card h3 {
+        font-size: 20px;
+      }
+
+      .progress {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .progress-label {
+        font-size: 12px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: rgba(219, 230, 255, 0.7);
+      }
+
+      .progress-track {
+        height: 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.2);
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #22d3ee 0%, #38bdf8 45%, #818cf8 100%);
+        width: 68%;
+      }
+
+      .preview-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .preview-item {
+        padding: 16px 18px;
+        border-radius: 18px;
+        background: rgba(8, 16, 40, 0.42);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+      }
+
+      .preview-item .label {
+        font-size: 12px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: rgba(226, 233, 255, 0.65);
+        margin-bottom: 6px;
+      }
+
+      .preview-item .value {
+        font-size: 18px;
+            font-weight: 600;
+        }
+
+      .cards-grid {
+        display: grid;
+        gap: 24px;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+
+      .glass-card {
+        border-radius: 26px;
+        padding: 28px;
+        background: rgba(12, 20, 44, 0.78);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 26px 50px rgba(6, 13, 35, 0.35);
+            display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .glass-card.light {
+        background: rgba(255, 255, 255, 0.12);
+        color: #0f172a;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+      }
+
+      .glass-card.light p,
+      .glass-card.light span {
+        color: rgba(15, 23, 42, 0.7);
+      }
+
+      .badge {
+        padding: 6px 14px;
+        border-radius: 999px;
+        font-size: 11px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        font-weight: 600;
+        width: fit-content;
+      }
+
+      .badge.warning {
+        background: rgba(248, 113, 113, 0.2);
+        color: #fecaca;
+        border: 1px solid rgba(248, 113, 113, 0.45);
+      }
+
+      .badge.success {
+        background: rgba(16, 185, 129, 0.18);
+        color: #bbf7d0;
+        border: 1px solid rgba(16, 185, 129, 0.32);
+      }
+
+      .stat-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        font-size: 14px;
+        color: rgba(216, 226, 255, 0.75);
+      }
+
+      .stat-row strong {
+        font-size: 20px;
+        font-weight: 600;
+      }
+
+      .metrics-grid {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      }
+
+      .metric-card {
+        border-radius: 22px;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+      }
+
+      .metric-card p.label {
+        font-size: 12px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: rgba(221, 232, 255, 0.6);
+        margin-bottom: 8px;
+      }
+
+      .metric-card p.value {
+        font-size: 22px;
+        font-weight: 600;
+      }
+
+      .scenario-grid {
+        display: grid;
+        gap: 22px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+
+      .scenario-card {
+        border-radius: 24px;
+        background: rgba(10, 19, 45, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        padding: 24px;
+        box-shadow: 0 20px 45px rgba(3, 11, 30, 0.38);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .scenario-card.variant-optimized {
+        background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(99, 102, 241, 0.22));
+        border-color: rgba(99, 102, 241, 0.35);
+      }
+
+      .scenario-card .scenario-badge {
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        width: fit-content;
+      }
+
+      .scenario-stats {
+        display: grid;
+        gap: 10px;
+        font-size: 13px;
+        color: rgba(214, 226, 255, 0.78);
+      }
+
+      .scenario-stats strong {
+        display: block;
+        font-size: 20px;
+        font-weight: 600;
+        color: #ffffff;
+      }
+
+      .scenario-progress-track {
+        height: 6px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+
+      .scenario-progress-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #22d3ee 0%, #38bdf8 45%, #818cf8 100%);
+      }
+
+      .footer {
+        text-align: center;
+        font-size: 12px;
+        color: rgba(203, 213, 255, 0.55);
+        }
+
+        @media (max-width: 768px) {
+        body {
+          padding: 32px 18px;
+        }
+        .hero {
+          padding: 32px;
+        }
+        .preview-card {
+          padding: 24px;
+        }
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+      <section class="parameter-panel">
+        <h2>Parameter</h2>
+        <div class="slider-grid">
+          <div class="slider-group">
+            <label>Inflationsrate (%)</label>
+            <input type="range" min="0" max="5" step="0.1" value="2.1" />
+            <div class="value-row">
+              <span>0%</span>
+              <span>2.1%</span>
+              <span>5%</span>
+            </div>
+          </div>
+          <div class="slider-group">
+            <label>Rendite Ansparphase (%)</label>
+            <input type="range" min="0" max="12" step="0.1" value="7.0" />
+            <div class="value-row">
+              <span>0%</span>
+              <span>7.0%</span>
+              <span>12%</span>
+            </div>
+          </div>
+          <div class="slider-group">
+            <label>Rendite Entnahmephase (%)</label>
+            <input type="range" min="0" max="8" step="0.1" value="2.0" />
+            <div class="value-row">
+              <span>0%</span>
+              <span>2.0%</span>
+              <span>8%</span>
+        </div>
+                    </div>
+          <div class="slider-group">
+            <label>Monatliche Sparrate (€)</label>
+            <input type="range" min="0" max="3000" step="10" value="400" />
+            <div class="value-row">
+              <span>0 €</span>
+              <span>400 €</span>
+              <span>3.000 €</span>
+                    </div>
+                    </div>
+                    </div>
+      </section>
+
+      <header class="hero">
+        <div class="hero-content">
+          <div>
+            <p class="subtitle" style="text-transform: uppercase; letter-spacing: 0.28em; font-size: 13px; color: rgba(212, 223, 255, 0.75); margin-bottom: 18px;">
+              Finance Made Simple · Quick Preview
+            </p>
+            <h1>Rentenlücke verstehen – und smart schließen.</h1>
+            <p class="subtitle">
+              Visualisiere auf einen Blick, wie weit deine aktuelle Versorgung reicht, welche Lücke bleibt
+              und wie eine optimierte Sparrate das Ziel erreichbar macht.
+            </p>
+            <div class="tag-row">
+              <span>Individuelle Analyse</span>
+              <span>Live-Simulation</span>
+              <span>Transparente Kosten</span>
+              <span>Beratung per Video</span>
+                    </div>
+            <div class="cta-row">
+              <button class="cta-button">Detailanalyse öffnen</button>
+              <p class="cta-meta">
+                Stand: 09.11.2025 · Kunde: Max Mustermann<br />
+                Ansprechpartner: Finance Made Simple
+              </p>
+                    </div>
+                </div>
+          <div class="preview-card">
+            <h3>Deckungsgrad deiner Zielrente</h3>
+            <div class="progress">
+              <div class="progress-label">Aktueller Deckungsgrad: <strong>99,2 %</strong></div>
+              <div class="progress-track">
+                <div class="progress-fill" style="width: 99%;"></div>
+              </div>
+            </div>
+            <div class="preview-grid">
+              <div class="preview-item">
+                <p class="label">Bisher gedeckt (netto)</p>
+                <p class="value">860,14 €</p>
+              </div>
+              <div class="preview-item">
+                <p class="label">Zielrente (netto)</p>
+                <p class="value">2.000,00 €</p>
+              </div>
+              <div class="preview-item">
+                <p class="label">Aktuelle Lücke</p>
+                <p class="value" style="color:#fca5a5;">1.139,86 €</p>
+              </div>
+              <div class="preview-item">
+                <p class="label">Kapitalbedarf gesamt</p>
+                <p class="value">328.279,68 €</p>
+              </div>
+            </div>
+        </div>
+    </div>
+      </header>
+
+      <section class="cards-grid">
+        <article class="glass-card">
+          <span class="badge warning">Ist-Situation</span>
+          <h2>Deine aktuelle Rentenlücke</h2>
+          <p style="color: rgba(210, 222, 255, 0.78);">
+            Deine gesetzliche Rente (860,14 €) und die bestehenden privaten Vorsorgen (0,00 €) decken aktuell 860,14 € monatlich ab. Damit fehlt dir zum Ziel von 2.000,00 € eine Lücke von 1.139,86 €.
+          </p>
+          <div class="stat-row">
+            <span>Gesetzliche Rente (netto)</span>
+            <strong>860,14 €</strong>
+          </div>
+          <div class="stat-row">
+            <span>Private Vorsorge (netto)</span>
+            <strong>0,00 €</strong>
+          </div>
+          <div class="stat-row">
+            <span>Versorgungslücke</span>
+            <strong style="color:#fca5a5;">1.139,86 €</strong>
+          </div>
+        </article>
+
+        <article class="glass-card light">
+          <span class="badge success">Empfehlung</span>
+          <h2>Was leistet die Sparrate?</h2>
+          <p>
+            Mit 410,00 € monatlicher Sparrate erzeugst du 1.124,86 € zusätzliche Netto-Rente, reduzierst die Lücke auf 15,00 € und deckst fast den gesamten Kapitalbedarf.
+          </p>
+          <div class="stat-row">
+            <span>Netto-Zusatzrente</span>
+            <strong style="color:#0f172a;">1.124,86 €</strong>
+          </div>
+          <div class="stat-row">
+            <span>Restlücke</span>
+            <strong style="color:#16a34a;">15,00 €</strong>
+          </div>
+          <div class="stat-row">
+            <span>Kapitalbedarf offen</span>
+            <strong style="color:#16a34a;">4.320,00 €</strong>
+          </div>
+          <p style="font-size: 13px; color: rgba(15,23,42,0.65);">
+            Kapitalbedarf gesamt: 328.279,68 € · Bereits abgedeckt: 323.959,68 € · Sparrate: 410,00 €/mtl.
+          </p>
+        </article>
+      </section>
+
+      <section class="metrics-grid">
+        <div class="metric-card">
+          <p class="label">Deckungsgrad</p>
+          <p class="value">99,2 %</p>
+          <p style="font-size:12px; color: rgba(214,224,255,0.7); margin-top: 4px;">nach Umsetzung der Sparrate</p>
+        </div>
+        <div class="metric-card">
+          <p class="label">Kapitalbedarf</p>
+          <p class="value">328.279,68 €</p>
+          <p style="font-size:12px; color: rgba(214,224,255,0.7); margin-top: 4px;">für 22 Jahre Ruhestand</p>
+        </div>
+        <div class="metric-card">
+          <p class="label">Sparrate</p>
+          <p class="value">410 €/mtl.</p>
+          <p style="font-size:12px; color: rgba(214,224,255,0.7); margin-top: 4px;">Zur Zielerreichung erforderlich</p>
+        </div>
+        <div class="metric-card">
+          <p class="label">Zusatzeinnahmen</p>
+          <p class="value">1.124,86 €</p>
+          <p style="font-size:12px; color: rgba(214,224,255,0.7); margin-top: 4px;">Netto pro Monat zusätzlich</p>
+        </div>
+      </section>
+
+      <section>
+        <h2 style="font-size: 24px; margin-bottom: 18px;">Szenarien im Vergleich</h2>
+        <div class="scenario-grid">
+          <article class="scenario-card">
+            <span class="scenario-badge">Ohne private Vorsorge</span>
+            <h3>Nur gesetzliche Versorgung</h3>
+            <div class="scenario-stats">
+              <div>
+                Rente (netto)
+                <strong>1.653,41 €</strong>
+              </div>
+              <div>
+                Versorgungslücke
+                <strong style="color:#fca5a5;">1.139,86 €</strong>
+              </div>
+                        </div>
+            <p style="font-size: 12px; color: rgba(222,228,255,0.68);">
+              Ohne private Ergänzung fehlen monatlich 1.139,86 € zur Zielrente.
+            </p>
+          </article>
+
+          <article class="scenario-card">
+            <span class="scenario-badge">Mit bestehender Vorsorge</span>
+            <h3>Gesetzlich + privat (aktuell)</h3>
+            <div class="scenario-stats">
+              <div>
+                Rente (netto)
+                <strong>860,14 €</strong>
+                            </div>
+              <div>
+                Versorgungslücke
+                <strong style="color:#fb923c;">1.139,86 €</strong>
+                            </div>
+                        </div>
+            <p style="font-size: 12px; color: rgba(222,228,255,0.68);">
+              Deine bestehenden Verträge schließen bereits 43,0 % der Zielrente.
+            </p>
+          </article>
+
+          <article class="scenario-card variant-optimized">
+            <span class="scenario-badge">Empfohlen</span>
+            <h3>Mit neuer Sparrate</h3>
+            <div class="scenario-stats">
+              <div>
+                Rente (netto)
+                <strong>1.985,00 €</strong>
+              </div>
+              <div>
+                Restlücke
+                <strong style="color:#bbf7d0;">15,00 €</strong>
+                            </div>
+              <div>
+                Deckungsgrad
+                <div class="scenario-progress-track">
+                  <div class="scenario-progress-fill" style="width: 99%;"></div>
+                                </div>
+                            </div>
+                        </div>
+            <p style="font-size: 12px; color: rgba(222,228,255,0.78);">
+              Mit der empfohlenen Sparrate erreichst du 99,2 % deines Ziels – es verbleibt eine Restlücke von 15,00 €.
+            </p>
+          </article>
+                            </div>
+      </section>
+
+      <div class="footer">
+        Hinweis: Alle Werte basieren auf modellhaften Annahmen. Gesetzliche Änderungen und individuelle Steuersätze können zu Abweichungen führen.
+                            </div>
+                    </div>
+</body>
+</html>

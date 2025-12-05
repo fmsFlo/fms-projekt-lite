@@ -1,0 +1,50 @@
+/* Apple-Inspired Spacing System */
+
+:root {
+  /* Base spacing unit: 4px */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+  --spacing-20: 80px;
+  --spacing-24: 96px;
+  --spacing-30: 120px;
+  
+  /* Section spacing (generous whitespace) */
+  --spacing-section-sm: 80px;
+  --spacing-section-md: 100px;
+  --spacing-section-lg: 120px;
+  
+  /* Container padding */
+  --padding-mobile: 16px;
+  --padding-tablet: 24px;
+  --padding-desktop: 40px;
+  
+  /* Max content width */
+  --max-width-content: 1400px;
+  
+  /* Border radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 24px;
+  --radius-full: 9999px;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 3px var(--color-shadow-sm);
+  --shadow-md: 0 2px 12px var(--color-shadow-md);
+  --shadow-lg: 0 4px 24px var(--color-shadow-lg);
+  
+  /* Button heights */
+  --button-height-sm: 36px;
+  --button-height-md: 44px;
+  --button-height-lg: 52px;
+}
+
