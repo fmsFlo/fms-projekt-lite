@@ -48,7 +48,26 @@ export default async function OpportunitiesPage() {
         </div>
       </div>
       
-      <OpportunitiesList initialOpportunities={opportunities} phases={opportunityPhases} />
+      <OpportunitiesList 
+        initialOpportunities={opportunities.map(opp => ({
+          ...opp,
+          createdAt: opp.createdAt.toISOString(),
+          updatedAt: opp.updatedAt.toISOString(),
+          nextActionDate: opp.nextActionDate ? new Date(opp.nextActionDate).toISOString().split('T')[0] : null,
+          phase: {
+            ...opp.phase,
+            createdAt: opp.phase.createdAt.toISOString(),
+            updatedAt: opp.phase.updatedAt.toISOString()
+          }
+        }))} 
+        phases={opportunityPhases.map(phase => ({
+          id: phase.id,
+          name: phase.name,
+          slug: phase.slug,
+          order: phase.order,
+          color: phase.color
+        }))} 
+      />
     </div>
   )
 }

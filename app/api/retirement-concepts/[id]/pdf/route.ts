@@ -38,7 +38,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     const clientName = `${concept.client?.firstName ?? ''} ${concept.client?.lastName ?? ''}`.trim()
     const fileName = `${(clientName.length > 0 ? clientName : 'Rentenkonzept').replace(/\s+/g, '_')}.pdf`
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(pdfBuffer as any, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${fileName}"`,

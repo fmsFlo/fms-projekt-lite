@@ -44,7 +44,7 @@ export default function UsersSection() {
       const res = await fetch('/api/templates')
       if (res.ok) {
         const templates = await res.json()
-        const categories = Array.from(new Set(templates.map((t: any) => t.category).filter(Boolean)))
+        const categories = Array.from(new Set(templates.map((t: any) => t.category).filter(Boolean))) as string[]
         setAvailableCategories(categories.sort())
       }
     } catch (err) {

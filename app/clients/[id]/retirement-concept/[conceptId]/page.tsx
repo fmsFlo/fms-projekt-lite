@@ -83,7 +83,41 @@ export default async function RetirementConceptPage({ params }: Params) {
         </div>
 
         <RetirementConceptForm
-          initialConcept={concept}
+          initialConcept={{
+            id: concept.id,
+            clientId: concept.clientId,
+            birthDate: concept.birthDate ? (typeof concept.birthDate === 'string' ? concept.birthDate : new Date(concept.birthDate).toISOString().split('T')[0]) : null,
+            desiredRetirementAge: concept.desiredRetirementAge,
+            targetPensionNetto: concept.targetPensionNetto,
+            hasCurrentPensionInfo: concept.hasCurrentPensionInfo,
+            pensionAtRetirement: concept.pensionAtRetirement,
+            pensionIncrease: concept.pensionIncrease,
+            inflationRate: concept.inflationRate,
+            calculatedPensionAtRetirement: concept.calculatedPensionAtRetirement,
+            existingProvisionData: concept.existingProvisionData,
+            lifeExpectancy: concept.lifeExpectancy,
+            monthlySavings: concept.monthlySavings,
+            returnRate: concept.returnRate,
+            withdrawalRate: concept.withdrawalRate,
+            hasChildren: concept.hasChildren,
+            isCompulsoryInsured: concept.isCompulsoryInsured,
+            kvBaseRate: concept.kvBaseRate,
+            kvAdditionalRate: concept.kvAdditionalRate,
+            kvContributionIncrease: concept.kvContributionIncrease,
+            statutoryStrengths: concept.statutoryStrengths,
+            statutoryWeaknesses: concept.statutoryWeaknesses,
+            privateStrengths: concept.privateStrengths,
+            privateWeaknesses: concept.privateWeaknesses,
+            customTemplateHtml: concept.customTemplateHtml,
+            recommendationDelta: concept.recommendationDelta,
+            notes: concept.notes,
+            client: {
+              id: concept.client.id,
+              firstName: concept.client.firstName,
+              lastName: concept.client.lastName,
+              birthDate: concept.client.birthDate
+            }
+          }}
           clientBirthDate={concept.client.birthDate}
           initialAttachments={concept.attachments.map((attachment) => ({
             id: attachment.id,
@@ -93,6 +127,7 @@ export default async function RetirementConceptPage({ params }: Params) {
             createdAt: attachment.createdAt.toISOString(),
             expiresAt: attachment.expiresAt.toISOString(),
             url: `/api/retirement-concepts/${concept.id}/attachments/${attachment.id}`,
+            size: attachment.size
           }))}
         />
       </div>

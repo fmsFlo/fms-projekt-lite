@@ -25,13 +25,13 @@ export async function GET(req: NextRequest) {
 
     // 1. Hole Calendly Termine (geplant)
     // WICHTIG: Wenn userId angegeben, finde alle User mit demselben Namen (für Florian Hörning Problem)
-    let userIdsToQuery: number[] = []
+    let userIdsToQuery: string[] = []
     if (userId) {
       const user = await dbGet('SELECT name FROM users WHERE id = ?', [userId])
       if (user?.name) {
         // Finde alle User mit demselben Namen
         const usersWithSameName = await dbAll('SELECT id FROM users WHERE name = ?', [user.name])
-        userIdsToQuery = usersWithSameName.map((u: any) => u.id)
+        userIdsToQuery = usersWithSameName.map((u: any) => String(u.id))
       } else {
         userIdsToQuery = [userId]
       }

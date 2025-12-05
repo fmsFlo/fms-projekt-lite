@@ -10,8 +10,9 @@ const schema = z.object({
 })
 
 export async function POST(req: Request) {
+  let input: z.infer<typeof schema> | null = null
   try {
-    const input = schema.parse(await req.json())
+    input = schema.parse(await req.json())
     const client = await prisma.client.findUnique({ where: { id: input.clientId } })
     if (!client) return NextResponse.json({ message: 'Client nicht gefunden' }, { status: 404 })
 
@@ -227,8 +228,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ 
         message: 'Template-Datei nicht gefunden. Bitte Template erstellen.', 
         error: err.message,
-        templateSlug: parsedInput.templateSlug,
-        filePath: `templates/contracts/${parsedInput.templateSlug}.hbs`
+        templateSlug: input?.templateSlug || 'unknown',
+        filePath: `templates/contracts/${input?.templateSlug || 'unknown'}.hbs`
       }, { status: 404 })
     }
     return NextResponse.json({ 

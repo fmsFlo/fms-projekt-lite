@@ -594,14 +594,12 @@ export default function SettingsPage() {
             </>
           )}
 
-          {/* Save Button - nur bei Formularen */}
-          {activeTab !== 'benutzer' && (
-            <div className="flex gap-2">
-              <button disabled={saving} type="submit" className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
-                {saving ? 'Speichere…' : 'Speichern'}
-              </button>
-            </div>
-          )}
+          {/* Save Button */}
+          <div className="flex gap-2">
+            <button disabled={saving} type="submit" className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+              {saving ? 'Speichere…' : 'Speichern'}
+            </button>
+          </div>
         </form>
       )}
     </div>

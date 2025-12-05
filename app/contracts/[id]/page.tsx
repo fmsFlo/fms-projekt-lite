@@ -89,7 +89,6 @@ export default async function ContractDetailPage({ params }: Params) {
     customerSignature: 'Kunde (Unterschrift)',
     intermediarySignature: 'Vermittler (Unterschrift)',
     servicePackage: 'Servicepauschale',
-    totalAmount: 'Gesamtbetrag',
     consultationType: 'Beratungsart',
     consultationHours: 'Beratungsstunden',
     hourlyRate: 'Stundensatz',

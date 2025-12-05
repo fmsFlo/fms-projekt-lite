@@ -728,7 +728,6 @@ export default function ContractCreator({
       customerSignature: 'Kunde (Unterschrift)',
       intermediarySignature: 'Vermittler (Unterschrift)',
       additionalNote: 'Zusatzhinweis (immer einfügen)',
-      totalAmount: 'Gesamtbetrag',
       consultationType: 'Beratungsart',
       consultationHours: 'Beratungsstunden',
       hourlyRate: 'Stundensatz',
@@ -859,7 +858,7 @@ export default function ContractCreator({
             <input
               type="radio"
               name="suitability"
-              checked={value === 'true' || value === true}
+              checked={value === 'true' || value === '1' || String(value) === 'true'}
               onChange={() => {
                 // Wenn diese Option gewählt wird, setze die andere auf false
                 if (field === 'suitabilitySuitable') {
@@ -884,7 +883,7 @@ export default function ContractCreator({
         <label className="flex items-start gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded">
           <input
             type="checkbox"
-            checked={value === 'true' || value === true}
+            checked={value === 'true' || value === '1' || String(value) === 'true'}
             onChange={(e) => onChangeVar(field, e.target.checked ? 'true' : '')}
             className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5"
           />
@@ -914,7 +913,7 @@ export default function ContractCreator({
             <input
               type="radio"
               name="customerDecision"
-              checked={value === 'true' || value === true}
+              checked={value === 'true' || value === '1' || String(value) === 'true'}
               onChange={() => {
                 // Wenn diese Option gewählt wird, setze die andere auf false
                 if (field === 'customerDecisionFull') {

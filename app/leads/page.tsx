@@ -48,7 +48,24 @@ export default async function LeadsPage() {
         </div>
       </div>
       
-      <LeadsList initialLeads={leads} phases={leadPhases} />
+      <LeadsList 
+        initialLeads={leads.map(lead => ({
+          ...lead,
+          createdAt: lead.createdAt.toISOString(),
+          updatedAt: lead.updatedAt.toISOString(),
+          nextActionDate: lead.nextActionDate ? new Date(lead.nextActionDate).toISOString().split('T')[0] : null,
+          phase: {
+            ...lead.phase,
+            createdAt: lead.phase.createdAt.toISOString(),
+            updatedAt: lead.phase.updatedAt.toISOString()
+          }
+        }))} 
+        phases={leadPhases.map(phase => ({
+          id: phase.id,
+          name: phase.name,
+          color: phase.color
+        }))} 
+      />
     </div>
   )
 }

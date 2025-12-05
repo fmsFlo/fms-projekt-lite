@@ -18,7 +18,7 @@ export async function GET() {
     }
 
     // Teste die Verbindung durch Abrufen des Account-Status
-    const account = await stripe.account.retrieve()
+    const account = await stripe.accounts.retrieve()
     
     return NextResponse.json({
       success: true,
@@ -33,8 +33,8 @@ export async function GET() {
         details_submitted: account.details_submitted,
       },
       capabilities: {
-        sepa_debit_payments: account.capabilities?.sepa_debit_payments?.status || 'unknown',
-        card_payments: account.capabilities?.card_payments?.status || 'unknown',
+        sepa_debit_payments: (account.capabilities as any)?.sepa_debit_payments?.status || (account.capabilities as any)?.sepa_debit_payments || 'unknown',
+        card_payments: (account.capabilities as any)?.card_payments?.status || (account.capabilities as any)?.card_payments || 'unknown',
       }
     })
   } catch (err: any) {

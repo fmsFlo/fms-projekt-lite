@@ -241,9 +241,7 @@ export default async function ClientDetailPage({ params }: Params) {
   const customerName = `${client.firstName} ${client.lastName}`.trim()
   
   // Berater-Name aus Company Settings
-  const advisorName = companySettings?.advisorFirstName && companySettings?.advisorLastName 
-    ? `${companySettings.advisorFirstName} ${companySettings.advisorLastName}`.trim()
-    : companySettings?.advisorName || ''
+  const advisorName = companySettings?.personalName || ''
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">

@@ -943,8 +943,10 @@ export default function CalendlyDashboardPage() {
                         cx="50%"
                         cy="50%"
                         outerRadius={80}
-                        label={({ name, percent }) => {
-                          const shortName = name.length > 15 ? name.substring(0, 15) + '...' : name
+                        label={(props: any) => {
+                          const name = props.name || ''
+                          const percent = props.percent || 0
+                          const shortName = name && name.length > 15 ? name.substring(0, 15) + '...' : name
                           return `${shortName}: ${(percent * 100).toFixed(1)}%`
                         }}
                         labelLine={false}

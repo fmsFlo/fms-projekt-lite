@@ -40,9 +40,10 @@ export default function NewClientPage() {
   }
 
   return (
-    <div className="max-w-xl">
-      <h1 className="text-2xl font-semibold mb-4">Neuer Client</h1>
-      <form onSubmit={onSubmit} className="space-y-3">
+    <AuthGuard>
+      <div className="max-w-xl">
+        <h1 className="text-2xl font-semibold mb-4">Neuer Client</h1>
+        <form onSubmit={onSubmit} className="space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-sm mb-1">Vorname</label>
@@ -115,7 +116,7 @@ export default function NewClientPage() {
           <a className="px-3 py-2 rounded border" href="/clients">Abbrechen</a>
         </div>
       </form>
-    </div>
+      </div>
     </AuthGuard>
   )
 }

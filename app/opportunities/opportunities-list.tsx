@@ -35,8 +35,10 @@ interface OpportunitiesListProps {
   phases: Array<{ 
     id: string
     name: string
+    slug: string
+    order: number
     color: string | null
-    probability: number | null
+    probability?: number | null
   }>
 }
 

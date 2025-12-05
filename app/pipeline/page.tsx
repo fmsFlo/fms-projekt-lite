@@ -39,8 +39,28 @@ export default async function PipelinePage() {
       </div>
       
       <KanbanBoard 
-        initialPhases={phases} 
-        initialOpportunities={opportunities}
+        initialPhases={phases.map(phase => ({
+          id: phase.id,
+          name: phase.name,
+          slug: phase.slug,
+          order: phase.order,
+          color: phase.color,
+          isActive: phase.isActive
+        }))} 
+        initialOpportunities={opportunities.map(opp => ({
+          ...opp,
+          createdAt: opp.createdAt.toISOString(),
+          updatedAt: opp.updatedAt.toISOString(),
+          nextActionDate: opp.nextActionDate ? new Date(opp.nextActionDate).toISOString().split('T')[0] : null,
+          phase: {
+            id: opp.phase.id,
+            name: opp.phase.name,
+            slug: opp.phase.slug,
+            order: opp.phase.order,
+            color: opp.phase.color,
+            isActive: opp.phase.isActive
+          }
+        }))}
       />
     </div>
   )

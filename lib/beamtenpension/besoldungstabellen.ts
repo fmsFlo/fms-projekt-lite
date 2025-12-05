@@ -2406,10 +2406,12 @@ export function getErtragsanteilForAge(age: number): number {
   if (roundedAge < 55) {
     return 27
   }
-  if (ERTRAGSANTEIL_BY_AGE[roundedAge] !== undefined) {
-    return ERTRAGSANTEIL_BY_AGE[roundedAge]
+  // Ertragsanteil steigt linear von 27% bei 55 auf 100% bei 90
+  if (roundedAge >= 55 && roundedAge <= 90) {
+    const factor = (roundedAge - 55) / (90 - 55)
+    return Math.round(27 + factor * (100 - 27))
   }
-  return Math.max(1, ERTRAGSANTEIL_BY_AGE[90] ?? 1)
+  return 100
 }
 
 export function getProvisionTaxableShare(type: ProvisionType, retirementAge?: number): number {
@@ -2417,8 +2419,16 @@ export function getProvisionTaxableShare(type: ProvisionType, retirementAge?: nu
     const ertragsanteil = getErtragsanteilForAge(retirementAge)
     return Math.max(0, Math.min(1, ertragsanteil / 100))
   }
-  if (PROVISION_TAXABLE_SHARE[type] !== undefined) {
-    return PROVISION_TAXABLE_SHARE[type] as number
+  // Standard-Werte für steuerpflichtigen Anteil je nach Provisionstyp
+  const defaultShares: Partial<Record<ProvisionType, number>> = {
+    'Basis-Rente': 0.5,
+    'Riester-Rente': 0.5,
+    'Betriebliche Altersvorsorge': 0.5,
+    'Immobilieneinkünfte': 1.0,
+    'Sonstige Einkünfte': 1.0,
+    'Depotwert nach Steuern': 0.0,
+    'Sonstige wiederkehrende Bezüge': 1.0,
+    'Sparen': 0.0
   }
-  return DEFAULT_PROVISION_TAXABLE_SHARE
+  return defaultShares[type] ?? 0.5
 }

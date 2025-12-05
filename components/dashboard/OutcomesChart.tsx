@@ -88,8 +88,8 @@ const OutcomesChart: React.FC<OutcomesChartProps> = ({ data }) => {
           cx="50%"
           cy="50%"
           labelLine={false}
-          label={({ percent }) => {
-            if (percent < 0.05) return ''
+          label={({ percent }: { percent?: number }) => {
+            if (!percent || percent < 0.05) return ''
             return `${(percent * 100).toFixed(0)}%`
           }}
           outerRadius={70}
