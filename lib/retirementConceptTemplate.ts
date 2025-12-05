@@ -10,7 +10,7 @@ type TemplateAttachment = {
   filePath?: string | null
 }
 
-type TemplateConcept = {
+interface TemplateConcept {
   id: string
   client?: {
     firstName?: string | null
