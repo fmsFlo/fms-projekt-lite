@@ -260,10 +260,9 @@ export function buildRetirementConceptTemplateData(
   const statutoryAttachments = buildAttachmentList('statutory')
   const privateAttachments = buildAttachmentList('private')
 
-  let snapshot: CalculationSnapshot | null = null
-  if (concept.calculationSnapshot && typeof concept.calculationSnapshot === 'string') {
+  if ('calculationSnapshot' in concept && typeof (concept as any).calculationSnapshot === 'string') {
     try {
-      snapshot = JSON.parse(concept.calculationSnapshot) as CalculationSnapshot
+      snapshot = JSON.parse((concept as any).calculationSnapshot) as CalculationSnapshot
     } catch (error) {
       console.warn('Konnte calculationSnapshot nicht parsen:', error)
       snapshot = null
