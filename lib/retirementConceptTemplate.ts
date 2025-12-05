@@ -1,6 +1,7 @@
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import Handlebars from 'handlebars'
+import type { Prisma } from '@prisma/client'
 
 type TemplateAttachment = {
   id: string
