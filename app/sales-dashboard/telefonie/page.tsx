@@ -1,5 +1,5 @@
-export const runtime = "nodejs";
 "use client"
+export const runtime = "nodejs";
 
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'

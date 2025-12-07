@@ -1,5 +1,7 @@
-export const runtime = "nodejs";
 "use client"
+export const runtime = "nodejs";
+
+
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
