@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
   
@@ -49,4 +51,6 @@ export async function POST(request: NextRequest) {
 
   return response
 }
+
+
 

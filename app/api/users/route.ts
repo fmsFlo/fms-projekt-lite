@@ -5,6 +5,8 @@ import { hashPassword, isAdmin } from '@/lib/auth'
 import { cookies } from 'next/headers'
 import type { NextRequest } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 const createUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),

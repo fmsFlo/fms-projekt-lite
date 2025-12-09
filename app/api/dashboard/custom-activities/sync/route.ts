@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server'
 import { CustomActivitiesSyncService } from '@/lib/custom-activities-sync'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(req: NextRequest) {
   try {
     const session = req.cookies.get('session')?.value

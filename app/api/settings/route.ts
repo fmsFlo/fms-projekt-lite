@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 
+export const dynamic = 'force-dynamic'
+
 const settingsSchema = z.object({
   personalName: z.string().nullable().optional().transform(v => (v && v.trim()) || undefined),
   personalEmail: z.string().nullable().optional().transform(v => (v && v.trim()) || undefined),

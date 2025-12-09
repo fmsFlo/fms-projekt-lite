@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { renderRetirementConceptHtml } from '@/lib/retirementConceptTemplate'
 
+export const dynamic = 'force-dynamic'
+
 interface Params {
   params: { id: string }
 }

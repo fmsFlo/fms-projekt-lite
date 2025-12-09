@@ -104,3 +104,5 @@ const BestTimeChart: React.FC<BestTimeChartProps> = ({ data }) => {
 
 export default BestTimeChart
 
+
+

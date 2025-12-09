@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { getOrCreateSevdeskContact, createSevdeskInvoice, calculateStripeFees } from '@/lib/sevdesk'
 import { z } from 'zod'
 
+export const dynamic = 'force-dynamic'
+
 interface Params { params: { id: string } }
 
 const invoiceSchema = z.object({

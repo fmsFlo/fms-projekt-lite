@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+export const dynamic = 'force-dynamic'
+
 const schema = z.object({
   name: z.string().min(1).optional(),
   slug: z.string().min(1).regex(/^[a-z0-9-]+$/, 'Nur Kleinbuchstaben, Zahlen und Bindestriche').optional(),

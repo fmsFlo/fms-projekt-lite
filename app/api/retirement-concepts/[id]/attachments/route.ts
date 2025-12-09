@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { deleteConceptFile, saveConceptFile } from '@/lib/server/storage'
 
+export const dynamic = 'force-dynamic'
+
 const MAX_ATTACHMENTS_PER_CATEGORY = 3
 const EXPIRY_HOURS = 48
 const ALLOWED_MIME_TYPES = new Set([

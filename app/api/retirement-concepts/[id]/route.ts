@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 const updateConceptSchema = z.object({
   birthDate: z.string().optional().nullable(),
   desiredRetirementAge: z.number().optional().nullable(),

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 const opportunitySchema = z.object({
   title: z.string().min(1, 'Titel ist erforderlich'),
   description: z.string().optional(),

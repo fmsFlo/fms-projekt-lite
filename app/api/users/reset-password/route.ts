@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/auth'
 import crypto from 'crypto'
 
+export const dynamic = 'force-dynamic'
+
 const requestResetSchema = z.object({
   email: z.string().email()
 })

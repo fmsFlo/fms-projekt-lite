@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const templates = await prisma.contractTemplate.findMany({

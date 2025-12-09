@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { setSessionCookie, verifyCredentials } from '@/lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 const schema = z.object({
   email: z.string().email(),
   password: z.string().min(1)

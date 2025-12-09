@@ -4,6 +4,8 @@ import { getOrCreateStripeCustomer, createSepaMandate } from '@/lib/stripe'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+export const dynamic = 'force-dynamic'
+
 interface Params { params: { id: string } }
 
 /**

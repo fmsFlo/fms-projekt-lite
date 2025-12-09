@@ -3,6 +3,8 @@ import { getUserRole, getUserId } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import type { NextRequest } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
   try {
     // Prüfe Session direkt aus Cookie

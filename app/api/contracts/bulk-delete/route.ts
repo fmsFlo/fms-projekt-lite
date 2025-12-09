@@ -4,6 +4,8 @@ import { z } from 'zod'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+export const dynamic = 'force-dynamic'
+
 const schema = z.object({
   ids: z.array(z.string().min(1)).min(1),
 })

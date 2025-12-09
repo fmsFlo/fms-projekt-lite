@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { SERVICE_CONTACT_SEED } from '@/lib/service/serviceContactSeeds'
 import { z } from 'zod'
 
+export const dynamic = 'force-dynamic'
+
 const createSchema = z.object({
   name: z.string().min(2),
   email: z.string().email().optional().or(z.literal('')).transform((v) => (v ? v : undefined)),

@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { renderHandlebarsToHtml, htmlToPdf } from '@/lib/pdf'
 
+export const dynamic = 'force-dynamic'
+
 const schema = z.object({
   clientId: z.string().min(1),
   templateSlug: z.string().min(1),

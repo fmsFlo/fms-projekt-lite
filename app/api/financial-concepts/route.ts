@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 const financialConceptSchema = z.object({
   clientId: z.string().min(1, 'Client-ID ist erforderlich'),
   currentRente: z.number().optional().nullable(),

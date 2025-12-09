@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+export const dynamic = 'force-dynamic'
+
 interface Params { params: { id: string } }
 
 export async function DELETE(_req: Request, { params }: Params) {

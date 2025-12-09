@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 const updatePhaseSchema = z.object({
   name: z.string().min(1).optional(),
   slug: z.string().min(1).optional(),

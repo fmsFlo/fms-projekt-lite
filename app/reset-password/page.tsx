@@ -1,4 +1,4 @@
-"use client"
+'use client'
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
@@ -122,4 +122,6 @@ export default function ResetPasswordPage() {
     </div>
   )
 }
+
+
 
