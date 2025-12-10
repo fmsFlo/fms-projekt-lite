@@ -1,6 +1,7 @@
-import sqlite3 from 'sqlite3'
-import path from 'path'
-import fs from 'fs'
+import { PrismaClient } from "@prisma/client";
+
+export const prisma = new PrismaClient();
+
 
 const DB_PATH = process.env.DASHBOARD_DB_PATH || path.join(process.cwd(), 'fms-dashboard-master', 'backend', 'database', 'telefonie.db')
 
