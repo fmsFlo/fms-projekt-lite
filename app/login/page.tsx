@@ -1,63 +1,59 @@
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 'use client';
 
-
-import { useState, FormEvent, useEffect } from 'react'
-import { createClient } from '@/lib/supabase'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, FormEvent, useEffect } from 'react';
+import { createClient } from '@/lib/supabase';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function Login() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [checkingSession, setCheckingSession] = useState(true)
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const supabase = createClient()
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const supabase = createClient();
 
   useEffect(() => {
-    // Prüfe ob bereits eingeloggt
     async function checkSession() {
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await supabase.auth.getSession();
+
       if (session) {
-        // Bereits eingeloggt → zum Dashboard
-        router.push('/dashboard')
-        router.refresh()
+        router.push('/dashboard');
+        router.refresh();
       } else {
-        setCheckingSession(false)
+        setCheckingSession(false);
       }
     }
-    checkSession()
 
-    // Error-Parameter aus URL lesen
-    const errorParam = searchParams.get('error')
+    checkSession();
+
+    const errorParam = searchParams.get('error');
     if (errorParam === 'no_profile') {
-      setError('Kein Profil gefunden. Bitte wenden Sie sich an den Administrator.')
-      setCheckingSession(false)
+      setError('Kein Profil gefunden. Bitte wenden Sie sich an den Administrator.');
+      setCheckingSession(false);
     } else if (errorParam === 'blocked') {
-      setError('Ihr Account wurde gesperrt. Bitte wenden Sie sich an den Administrator.')
-      setCheckingSession(false)
+      setError('Ihr Account wurde gesperrt. Bitte wenden Sie sich an den Administrator.');
+      setCheckingSession(false);
     }
-  }, [searchParams, router, supabase])
+  }, [searchParams, router, supabase]);
 
   async function handleLogin(e: FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
-    })
+    });
 
     if (error) {
-      setError(error.message)
-      setLoading(false)
+      setError(error.message);
+      setLoading(false);
     } else {
-      // Hard redirect um sicherzustellen, dass alles neu geladen wird
-      window.location.href = '/dashboard'
+      window.location.href = '/dashboard';
     }
   }
 
@@ -69,7 +65,7 @@ export default function Login() {
           <p className="mt-4" style={{ color: 'var(--color-text-secondary)' }}>Prüfe Session...</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -83,14 +79,14 @@ export default function Login() {
             Anmelden für Berater-Zugang
           </p>
         </div>
-        
+
         <form onSubmit={handleLogin} className="space-y-6">
           {error && (
             <div className="p-3 rounded-lg text-sm" style={{ backgroundColor: 'rgba(255, 59, 48, 0.1)', border: '1px solid rgba(255, 59, 48, 0.3)', color: 'var(--color-error)' }}>
               {error}
             </div>
           )}
-          
+
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
               Email
@@ -105,20 +101,12 @@ export default function Login() {
               style={{
                 border: '1px solid var(--color-border)',
                 backgroundColor: 'var(--color-bg-primary)',
-                color: 'var(--color-text-primary)'
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = 'var(--color-primary)'
-                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(var(--color-primary-rgb, 0, 113, 227), 0.1)'
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = 'var(--color-border)'
-                e.currentTarget.style.boxShadow = 'none'
+                color: 'var(--color-text-primary)',
               }}
               placeholder="deine@email.de"
             />
           </div>
-          
+
           <div>
             <label htmlFor="password" className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
               Passwort
@@ -133,33 +121,23 @@ export default function Login() {
               style={{
                 border: '1px solid var(--color-border)',
                 backgroundColor: 'var(--color-bg-primary)',
-                color: 'var(--color-text-primary)'
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = 'var(--color-primary)'
-                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(var(--color-primary-rgb, 0, 113, 227), 0.1)'
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = 'var(--color-border)'
-                e.currentTarget.style.boxShadow = 'none'
+                color: 'var(--color-text-primary)',
               }}
               placeholder="••••••••"
             />
           </div>
-          
+
           <button
             type="submit"
             disabled={loading}
             className="w-full text-white py-2 px-4 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ 
-              backgroundColor: 'var(--color-primary)',
-              borderRadius: 'var(--radius-pill)'
-            }}
+            style={{ backgroundColor: 'var(--color-primary)', borderRadius: 'var(--radius-pill)' }}
           >
             {loading ? 'Anmelden...' : 'Anmelden'}
           </button>
         </form>
       </div>
     </div>
-  )
+  );
 }
+
