@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, FormEvent, useEffect } from 'react';
-import { createClient } from '@/lib/supabase';
-import { useRouter, useSearchParams } from 'next/navigation';
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+import { useState, FormEvent, useEffect } from 'react'
+import { createClient } from '@/lib/supabase'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 export default function Login() {
   const [email, setEmail] = useState('');
