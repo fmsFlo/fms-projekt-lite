@@ -1,6 +1,14 @@
 [build]
-  command = "npm run build"
+  command = "npx prisma generate && npx prisma migrate deploy && npm run build"
   publish = "next"
+
+[build.environment]
+  NETLIFY_NEXT_PLUGIN_SKIP = "true"
+  DISABLE_ESBUILD = "true"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Disable Neon database extension (Netlify keeps auto-installing it)
+[[plugins]]
+  package = "@netlify/plugin-noop"
