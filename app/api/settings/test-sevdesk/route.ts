@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
-import { testSevdeskConnection } from '@/lib/sevdesk'
+import { NextResponse } from "next/server";
+import { testSevdeskConnection } from "@/lib/sevdesk";
 
 /**
  * GET /api/settings/test-sevdesk
@@ -7,33 +7,54 @@ import { testSevdeskConnection } from '@/lib/sevdesk'
  */
 export async function GET() {
   try {
-    const result = await testSevdeskConnection()
-    
+    // Falls DATABASE_URL fehlt → nicht crashen
+    if (!process.env.DATABASE_URL) {
+      console.warn("[Sevdesk Test] DATABASE_URL missing. Skipping Prisma call.");
+      return NextResponse.json(
+        {
+          success: false,
+          message: "DATABASE_URL fehlt – Verbindung kann nicht getestet werden.",
+          error: "Missing DATABASE_URL",
+        },
+        { status: 400 }
+      );
+    }
+
+    const result = await testSevdeskConnection();
+
     if (result.success) {
       return NextResponse.json({
         success: true,
         message: result.message,
-        account: result.account,
-      })
+        account: result.account || null,
+      });
     }
 
-    // Stelle sicher, dass error ein String ist
-    const errorMessage = result.error 
-      ? (typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
-      : result.message
+    const errorMessage =
+      result.error && typeof result.error !== "string"
+        ? JSON.stringify(result.error)
+        : result.error ?? result.message;
 
-    return NextResponse.json({
-      success: false,
-      message: result.message,
-      error: errorMessage,
-    }, { status: 400 })
+    return NextResponse.json(
+      {
+        success: false,
+        message: result.message ?? "Sevdesk-Test fehlgeschlagen",
+        error: errorMessage,
+      },
+      { status: 400 }
+    );
   } catch (err: any) {
-    console.error('Sevdesk Test Error:', err)
-    return NextResponse.json({
-      success: false,
-      message: 'Fehler beim Testen der Sevdesk-Verbindung',
-      error: err.message || 'Unbekannter Fehler'
-    }, { status: 500 })
+    console.error("[Sevdesk Test] Unexpected Error:", err);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Fehler beim Testen der Sevdesk-Verbindung",
+        error: err?.message ?? "Unbekannter Fehler",
+      },
+      { status: 500 }
+    );
   }
 }
+
 
