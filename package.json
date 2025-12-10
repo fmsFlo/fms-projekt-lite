@@ -4,8 +4,9 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev",
-    "postinstall": "node ./scripts/conditional-migrate.js && prisma generate",
+    "prebuild": "npx prisma db push --accept-data-loss",
     "build": "next build",
+    "postinstall": "prisma generate",
     "start": "next start",
     "lint": "next lint",
     "prisma:generate": "prisma generate",
