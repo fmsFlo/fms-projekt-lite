@@ -1,10 +1,13 @@
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas  = ["public", "auth"]
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 model Client {
@@ -37,6 +40,8 @@ model Client {
   opportunities Opportunity[]
   leads         Lead[]
   retirementConcepts RetirementConcept[]
+
+  @@schema("public")
 }
 
 model ContractTemplate {
@@ -48,6 +53,8 @@ model ContractTemplate {
   description String?
   fields      String
   category    String?  @default("Honorar Beratung")
+
+  @@schema("public")
 }
 
 model Contract {
@@ -69,6 +76,8 @@ model Contract {
   // Sevdesk Integration
   sevdeskInvoiceId String? // ID der erstellten Sevdesk-Rechnung
   sevdeskInvoiceNumber String? // Rechnungsnummer von Sevdesk
+
+  @@schema("public")
 }
 
 model Company {
@@ -77,6 +86,8 @@ model Company {
   updatedAt DateTime @updatedAt
   
   settings CompanySettings?
+
+  @@schema("public")
 }
 
 model CompanySettings {
@@ -145,6 +156,7 @@ model CompanySettings {
   company                   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   
   @@index([companyId])
+  @@schema("public")
 }
 
 // Pipeline Management System
@@ -166,6 +178,8 @@ model PipelinePhase {
   
   opportunities Opportunity[]
   leads         Lead[]
+
+  @@schema("public")
 }
 
 model Lead {
@@ -196,6 +210,8 @@ model Lead {
   
   // Automation/Flow Felder
   automationData String?     // JSON für Flow-Daten
+
+  @@schema("public")
 }
 
 model Opportunity {
@@ -233,6 +249,8 @@ model Opportunity {
   
   // Air Call Integration (später)
   airCallContactId String?   // Air Call Contact ID
+
+  @@schema("public")
 }
 
 // Rentenkonzept
@@ -298,6 +316,8 @@ model RetirementConcept {
   attachments           RetirementConceptAttachment[]
   
   notes               String?    // Notizen
+
+  @@schema("public")
 }
 
 model RetirementConceptAttachment {
@@ -315,6 +335,7 @@ model RetirementConceptAttachment {
   concept RetirementConcept @relation(fields: [conceptId], references: [id], onDelete: Cascade)
 
   @@index([conceptId, category])
+  @@schema("public")
 }
 
 model ServiceContact {
@@ -327,6 +348,8 @@ model ServiceContact {
   category  String?
   phone     String?
   notes     String?
+
+  @@schema("public")
 }
 
 model User {
@@ -341,6 +364,8 @@ model User {
   resetToken        String?
   resetTokenExpires DateTime?
   visibleCategories String?  // JSON-Array der sichtbaren Kategorien (null = alle für Admin, [] = keine Honorarverträge für Berater)
+
+  @@schema("public")
 }
 
 // Altes Finanzkonzept-Model (für später, aktuell nicht verwendet)
