@@ -1,13 +1,12 @@
 'use client'
 
-export const runtime = "nodejs";
-export const dynamic = 'force-dynamic'
-
-import { useState, FormEvent, useEffect } from 'react'
+import { useState, FormEvent, useEffect, Suspense } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function Login() {
+export const dynamic = 'force-dynamic'
+
+function LoginContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -144,3 +143,17 @@ export default function Login() {
   );
 }
 
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style={{ borderColor: 'var(--color-primary)' }}></div>
+          <p className="mt-4" style={{ color: 'var(--color-text-secondary)' }}>Lädt...</p>
+        </div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
+  )
+}
