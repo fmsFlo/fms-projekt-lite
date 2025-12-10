@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { dbAll } from '@/lib/dashboard-db'
 
+export const dynamic = 'force-dynamic'
+
 // Activity Type Konfiguration (muss mit Backend übereinstimmen)
 const ACTIVITY_TYPES: Record<string, { id: string, dbType: string, resultField: string }> = {
   vorqualifizierung: {

@@ -47,18 +47,10 @@ CREATE TABLE IF NOT EXISTS "RetirementConcept" (
       ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Neue Felder hinzufügen, falls sie noch nicht vorhanden sind.
-ALTER TABLE "RetirementConcept"
-  ADD COLUMN IF NOT EXISTS "privateStrengths" TEXT;
-
-ALTER TABLE "RetirementConcept"
-  ADD COLUMN IF NOT EXISTS "privateWeaknesses" TEXT;
-
-ALTER TABLE "RetirementConcept"
-  ADD COLUMN IF NOT EXISTS "recommendationDelta" REAL;
-
-ALTER TABLE "RetirementConcept"
-  ADD COLUMN IF NOT EXISTS "customTemplateHtml" TEXT;
+-- Neue Felder hinzufügen (SQLite unterstützt kein IF NOT EXISTS in ALTER TABLE)
+-- Diese Felder sind bereits in der CREATE TABLE Anweisung oben enthalten
+-- Falls die Tabelle bereits existiert, müssen die Spalten manuell hinzugefügt werden
+-- oder die Migration muss neu erstellt werden
 
 PRAGMA foreign_keys=ON;
 

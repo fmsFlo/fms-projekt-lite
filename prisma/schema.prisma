@@ -71,10 +71,24 @@ model Contract {
   sevdeskInvoiceNumber String? // Rechnungsnummer von Sevdesk
 }
 
+model Company {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  settings CompanySettings?
+}
+
 model CompanySettings {
   id                        String   @id @default(cuid())
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
+  
+  companyId                 String   @unique
+  emailNotifications        Boolean  @default(true)
+  smsNotifications          Boolean  @default(false)
+  currency                  String   @default("EUR")
+  timezone                  String   @default("Europe/Berlin")
   
   // Persönliche Kontaktdaten
   personalName              String?
@@ -127,6 +141,10 @@ model CompanySettings {
   // Sevdesk Integration
   sevdeskApiToken           String?
   sevdeskApiUrl             String? // Optional, Standard: https://my.sevdesk.de/api/v1
+  
+  company                   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  @@index([companyId])
 }
 
 // Pipeline Management System
