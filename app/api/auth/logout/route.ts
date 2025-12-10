@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 const updateLeadSchema = z.object({
   firstName: z.string().optional().nullable(),

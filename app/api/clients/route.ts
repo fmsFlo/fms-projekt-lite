@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 const clientSchema = z.object({
   firstName: z.string().min(1, 'Vorname erforderlich'),

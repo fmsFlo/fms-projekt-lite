@@ -1,5 +1,6 @@
 export const runtime = "nodejs";       // Vercel cannot run DB on Edge
 export const dynamic = "force-dynamic";
+export const revalidate = 0
 
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";

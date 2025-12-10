@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { testSevdeskConnection } from "@/lib/sevdesk";
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 /**
  * GET /api/settings/test-sevdesk
  * Testet die Sevdesk-Verbindung

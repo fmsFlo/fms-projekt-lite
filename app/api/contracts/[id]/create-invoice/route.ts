@@ -4,6 +4,7 @@ import { getOrCreateSevdeskContact, createSevdeskInvoice, calculateStripeFees } 
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 interface Params { params: { id: string } }
 

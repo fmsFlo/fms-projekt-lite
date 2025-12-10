@@ -4,6 +4,7 @@ import { SERVICE_CONTACT_SEED } from '@/lib/service/serviceContactSeeds'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 const createSchema = z.object({
   name: z.string().min(2),

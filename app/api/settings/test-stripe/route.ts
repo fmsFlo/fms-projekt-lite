@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getStripeClient } from "@/lib/stripe";
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 /**
  * GET /api/settings/test-stripe
  * Testet die Stripe-Verbindung

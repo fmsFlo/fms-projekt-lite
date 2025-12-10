@@ -5,6 +5,7 @@ import { hashPassword } from '@/lib/auth'
 import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 const requestResetSchema = z.object({
   email: z.string().email()

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 const settingsSchema = z.object({
   personalName: z.string().nullable().optional().transform(v => (v && v.trim()) || undefined),

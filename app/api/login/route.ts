@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { setSessionCookie, verifyCredentials } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 const schema = z.object({
   email: z.string().email(),

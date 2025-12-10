@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { deleteConceptFile, saveConceptFile } from '@/lib/server/storage'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 const MAX_ATTACHMENTS_PER_CATEGORY = 3
 const EXPIRY_HOURS = 48

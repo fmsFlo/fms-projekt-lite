@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { renderHandlebarsToHtml, htmlToPdf } from '@/lib/pdf'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 const schema = z.object({
   clientId: z.string().min(1),
