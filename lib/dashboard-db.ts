@@ -1,58 +1,33 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
-export const prisma = new PrismaClient();
+/**
+ * Execute raw SELECT queries with parameters using Prisma.
+ * Replaces old SQLite dbAll(), dbGet(), dbRun() functionality.
+ */
 
-
-const DB_PATH = process.env.DASHBOARD_DB_PATH || path.join(process.cwd(), 'fms-dashboard-master', 'backend', 'database', 'telefonie.db')
-
-// Stelle sicher, dass das Datenbank-Verzeichnis existiert
-const DB_DIR = path.dirname(DB_PATH)
-if (!fs.existsSync(DB_DIR)) {
-  fs.mkdirSync(DB_DIR, { recursive: true })
+// Convert '?', '?', '?' placeholders to $1, $2, $3...
+function convertPlaceholders(query: string): string {
+  let idx = 0;
+  return query.replace(/\?/g, () => `$${++idx}`);
 }
 
-// Öffne Datenbankverbindung
-const db = new sqlite3.Database(DB_PATH, (err) => {
-  if (err) {
-    console.error('Fehler beim Öffnen der Dashboard-Datenbank:', err.message)
-  } else {
-    console.log('Verbindung zur Dashboard SQLite Datenbank hergestellt.')
-    // Aktiviere Foreign Keys
-    db.run("PRAGMA foreign_keys = ON", (err) => {
-      if (err) {
-        console.error('Fehler beim Aktivieren von Foreign Keys:', err.message)
-      }
-    })
-  }
-})
-
-// Promise-basierte Wrapper für Datenbankoperationen
-export const dbGet = (query: string, params: any[] = []): Promise<any> => {
-  return new Promise((resolve, reject) => {
-    db.get(query, params, (err, row) => {
-      if (err) reject(err)
-      else resolve(row)
-    })
-  })
+export async function dbAll(query: string, params: any[] = []) {
+  const sql = convertPlaceholders(query);
+  return prisma.$queryRawUnsafe(sql, ...params);
 }
 
-export const dbAll = (query: string, params: any[] = []): Promise<any[]> => {
-  return new Promise((resolve, reject) => {
-    db.all(query, params, (err, rows) => {
-      if (err) reject(err)
-      else resolve(rows || [])
-    })
-  })
+export async function dbGet(query: string, params: any[] = []) {
+  const sql = convertPlaceholders(query);
+  const rows = await prisma.$queryRawUnsafe(sql, ...params);
+  return rows[0] || null;
 }
 
-export const dbRun = (query: string, params: any[] = []): Promise<{ lastID: number; changes: number }> => {
-  return new Promise((resolve, reject) => {
-    db.run(query, params, function(err) {
-      if (err) reject(err)
-      else resolve({ lastID: this.lastID || 0, changes: this.changes || 0 })
-    })
-  })
+export async function dbRun(query: string, params: any[] = []) {
+  const sql = convertPlaceholders(query);
+  await prisma.$executeRawUnsafe(sql, ...params);
+
+  // Prisma does not expose lastID / changes like SQLite
+  return { lastID: 0, changes: 1 };
 }
 
-export { db }
 
