@@ -1,10 +1,9 @@
-export const runtime = "nodejs"; // REQUIRED for Vercel (sqlite + node APIs)
+export const runtime = "nodejs";       // Vercel cannot run DB on Edge
+export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { dbAll } from "@/lib/dashboard-db"; // Node sqlite helper, fine in Node.js only
-
-export const dynamic = "force-dynamic";
+import { dbAll } from "@/lib/dashboard-db";
 
 export async function GET(req: NextRequest) {
   try {
@@ -25,56 +24,61 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { searchParams } = new URL(req.url);
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
-    const userId = searchParams.get("userId");
+    // Query params
+    const url = new URL(req.url);
+    const startDate = url.searchParams.get("startDate");
+    const endDate = url.searchParams.get("endDate");
+    const userId = url.searchParams.get("userId");
+    const limitParam = url.searchParams.get("limit");
+    const offset = parseInt(url.searchParams.get("offset") || "0");
 
-    const limitParam = searchParams.get("limit");
     const limit = limitParam ? parseInt(limitParam) : null;
-    const offset = parseInt(searchParams.get("offset") || "0");
 
-    let whereClause = "WHERE 1=1";
+    // Build WHERE clause
+    let where = "WHERE 1=1";
     const params: any[] = [];
 
-    // Optional date filtering
     if (startDate) {
-      whereClause += " AND start_time >= ?";
+      where += " AND ce.start_time >= ?";
       params.push(startDate);
     }
 
     if (endDate) {
-      whereClause += " AND start_time <= ?";
+      where += " AND ce.start_time <= ?";
       params.push(endDate);
     }
 
     if (userId) {
-      whereClause += " AND user_id = ?";
+      where += " AND ce.user_id = ?";
       params.push(userId);
     }
 
+    // Base query
     let query = `
       SELECT 
         ce.*,
         COALESCE(u.name, ce.host_name) AS host_name
       FROM calendly_events ce
       LEFT JOIN users u ON ce.user_id = u.id
-      ${whereClause}
+      ${where}
       ORDER BY ce.start_time ASC
     `;
 
-    // Add limit + offset only if provided
+    // Apply LIMIT + OFFSET only if limit is provided
     if (limit !== null) {
       query += " LIMIT ? OFFSET ?";
       params.push(limit, offset);
     }
 
-    const events = await dbAll(query, params);
-    return NextResponse.json(events);
-  } catch (error: any) {
-    console.error("Fehler bei /api/dashboard/calendly/events:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Execute
+    const results = await dbAll(query, params);
+    return NextResponse.json(results);
+
+  } catch (err: any) {
+    console.error("Fehler bei /api/dashboard/calendly/events:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
 
 
