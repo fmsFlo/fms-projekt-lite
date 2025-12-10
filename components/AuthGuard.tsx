@@ -1,7 +1,6 @@
 'use client'
 export const runtime = "nodejs";
 
-
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
@@ -56,4 +55,6 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>
 }
+
+
 
