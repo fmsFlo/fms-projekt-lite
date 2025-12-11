@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import OpportunitiesList from './opportunities-list'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export default async function OpportunitiesPage() {
   // Auth wird von middleware.ts übernommen

@@ -38,3 +38,6 @@ server.log
 
 
 .env
+
+# Local Netlify folder
+.netlify

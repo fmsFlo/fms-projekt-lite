@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import ClientsClient from './table'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export default async function ClientsPage() {
   // Auth wird von middleware.ts übernommen

@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import KanbanBoard from './kanban-board'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export default async function PipelinePage() {
   // Auth wird von middleware.ts übernommen

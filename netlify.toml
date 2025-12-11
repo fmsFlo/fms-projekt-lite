@@ -10,6 +10,6 @@
   package = "@netlify/plugin-nextjs"
 
 [functions]
-  external_node_modules = ["@prisma/client", ".prisma/client"]
+  external_node_modules = ["@prisma/client", ".prisma/client", "@neondatabase/serverless"]
   node_bundler = "esbuild"
 

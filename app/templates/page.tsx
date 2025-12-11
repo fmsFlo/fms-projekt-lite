@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import TemplatesList from './templates-list'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export default async function TemplatesPage() {
   // Auth wird von Middleware geprüft

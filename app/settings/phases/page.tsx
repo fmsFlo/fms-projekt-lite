@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import PhasesConfig from './phases-config'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export default async function PhasesConfigPage() {
   const leadPhases = await prisma.pipelinePhase.findMany({
