@@ -253,6 +253,89 @@ model Opportunity {
   @@schema("public")
 }
 
+// Calendly Events
+model CalendlyEvent {
+  id                  String   @id @default(cuid())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  // Calendly-spezifische IDs
+  calendlyEventUri    String   @unique // URI von Calendly (z.B. "https://api.calendly.com/scheduled_events/ABC123")
+  
+  // Event-Details
+  eventTypeName       String?  // Name des Event-Types (z.B. "Erstgespräch")
+  mappedType          String?  // Gemappter Appointment-Type (erstgespraech, konzept, etc.)
+  startTime           DateTime
+  endTime             DateTime
+  status              String?  // active, canceled
+  
+  // Host-Informationen
+  hostName            String?
+  hostEmail           String?
+  userId              String?  // Verknüpfung zu User (falls vorhanden)
+  
+  // Invitee-Informationen
+  inviteeName         String?
+  inviteeEmail        String?
+  leadId              String?  // Verknüpfung zu Lead (falls vorhanden)
+  
+  // Sync-Informationen
+  syncedAt            DateTime @default(now())
+  
+  @@index([inviteeEmail])
+  @@index([startTime])
+  @@index([leadId])
+  @@schema("public")
+}
+
+// Custom Activities aus Close CRM
+model CustomActivity {
+  id                  String   @id @default(cuid())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  // Close-spezifische IDs
+  closeActivityId     String   @unique // ID von Close
+  
+  // Activity-Details
+  activityType        String   // vorqualifizierung, erstgespraech, konzeptgespraech, etc.
+  activityTypeId      String?  // Close Activity Type ID
+  
+  // Lead-Informationen
+  leadId              String?  // Close Lead ID
+  leadEmail           String?
+  leadName            String?
+  
+  // User-Informationen
+  userId              String?  // Close User ID
+  userEmail           String?
+  userName            String?
+  
+  // Ergebnis-Felder
+  resultFieldId       String?  // Close Custom Field ID
+  resultValue         String?  // Ergebnis-Wert (z.B. "Erfolgreich", "Nicht interessiert")
+  
+  // Daten
+  dateCreated         DateTime
+  dateUpdated         DateTime?
+  
+  // Verknüpfung zu Calendly Event
+  calendlyEventId     String?
+  calendlyEvent       CalendlyEvent? @relation(fields: [calendlyEventId], references: [id])
+  matchedAt           DateTime?
+  matchConfidence     Float?   // 0-1 Score für Match-Qualität
+  
+  // Sync-Informationen
+  syncedAt            DateTime @default(now())
+  
+  @@index([closeActivityId])
+  @@index([leadEmail])
+  @@index([activityType])
+  @@index([dateCreated])
+  @@index([calendlyEventId])
+  @@schema("public")
+}
+
 // Rentenkonzept
 model RetirementConcept {
   id          String   @id @default(cuid())

@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { CalendlySyncService } from '@/lib/calendly-sync'
+import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,21 +20,48 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { daysBack = 365 } = body
+    const { daysBack = 365, daysForward = 90 } = body
 
-    // TODO: Implementiere Calendly-Sync-Logik
-    // Für jetzt: Mock-Response
-    // In Zukunft: Rufe die Calendly-Sync-Services aus dem fms-dashboard-master Backend auf
+    // Hole Calendly API Token aus den Einstellungen
+    const settings = await prisma.companySettings.findFirst()
+    const calendlyApiToken = settings?.calendlyApiToken || process.env.CALENDLY_API_TOKEN || ''
+
+    if (!calendlyApiToken) {
+      return NextResponse.json({ 
+        error: 'Calendly API Token ist nicht konfiguriert',
+        note: 'Bitte konfigurieren Sie den Calendly API Token in den Einstellungen oder als CALENDLY_API_TOKEN Umgebungsvariable'
+      }, { status: 500 })
+    }
+
+    console.log(`[Sync] Starte Calendly Sync für ${daysBack} Tage zurück, ${daysForward} Tage voraus...`)
+
+    const syncService = new CalendlySyncService(calendlyApiToken)
     
+    // Führe Sync aus
+    let syncedCount
+    try {
+      syncedCount = await syncService.syncCalendlyEvents(daysBack, daysForward)
+    } catch (syncError: any) {
+      console.error('[Sync] Fehler beim Sync:', syncError)
+      return NextResponse.json({ 
+        error: syncError.message || 'Fehler beim Synchronisieren',
+        note: 'Bitte prüfen Sie die Logs für Details'
+      }, { status: 500 })
+    }
+
     return NextResponse.json({ 
       success: true, 
-      message: `Calendly-Synchronisation gestartet für ${daysBack} Tage`,
-      syncedCount: 0,
-      note: 'Die vollständige Sync-Funktionalität muss noch implementiert werden. Sie können die Sync-Skripte aus dem fms-dashboard-master Backend verwenden.'
+      message: `✅ ${syncedCount} Calendly Events synchronisiert!`,
+      syncedCount
     })
   } catch (error: any) {
     console.error('Fehler bei /api/dashboard/calendly/sync:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ 
+      error: error.message,
+      note: error.message.includes('CALENDLY_API_TOKEN') 
+        ? 'Bitte fügen Sie CALENDLY_API_TOKEN zu Ihrer .env.local Datei hinzu oder konfigurieren Sie es in den Einstellungen'
+        : 'Fehler beim Synchronisieren. Bitte prüfen Sie die Logs.'
+    }, { status: 500 })
   }
 }
 

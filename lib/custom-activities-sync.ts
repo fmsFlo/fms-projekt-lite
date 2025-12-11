@@ -1,5 +1,5 @@
 import { CloseApiService } from './close-api'
-import { dbGet, dbAll, dbRun } from './dashboard-db'
+import { prisma } from './prisma'
 
 const ACTIVITY_TYPE_CONFIG = CloseApiService.getActivityTypeConfig()
 
@@ -225,26 +225,26 @@ export class CustomActivitiesSyncService {
       }
     }
     
-    const activityDate = activity.date_created || activity.created || activity.activity_at || new Date().toISOString()
+    const activityDate = activity.date_created || activity.created || activity.activity_at || new Date()
     const activityId = `ca_${activity.id}`
+    const dateUpdated = activity.date_updated ? new Date(activity.date_updated) : activityDate
     
     // Check ob bereits existiert
-    const existing = await dbGet(
-      'SELECT id, result_value, date_updated FROM custom_activities WHERE close_activity_id = ?',
-      [activity.id]
-    )
+    const existing = await prisma.customActivity.findUnique({
+      where: { closeActivityId: activity.id },
+      select: { id: true, resultValue: true, dateUpdated: true }
+    })
     
     if (existing) {
       // Bei Incremental Sync: Prüfe ob sich etwas geändert hat
       if (incremental) {
-        const existingResult = existing.result_value
-        const existingDateUpdated = existing.date_updated
-        const newDateUpdated = activity.date_updated || activityDate
+        const existingResult = existing.resultValue
+        const existingDateUpdated = existing.dateUpdated
         
         // Prüfe ob Ergebnis oder Datum sich geändert haben
         const hasChanged = existingResult !== resultValue || 
-                         (existingDateUpdated && newDateUpdated && 
-                          new Date(existingDateUpdated).getTime() !== new Date(newDateUpdated).getTime())
+                         (existingDateUpdated && dateUpdated && 
+                          existingDateUpdated.getTime() !== dateUpdated.getTime())
         
         if (!hasChanged) {
           // Keine Änderung - skip
@@ -253,54 +253,41 @@ export class CustomActivitiesSyncService {
       }
       
       // Update
-      await dbRun(`
-        UPDATE custom_activities SET
-          activity_type = ?,
-          lead_email = ?,
-          lead_name = ?,
-          user_email = ?,
-          user_name = ?,
-          result_value = ?,
-          date_updated = ?,
-          synced_at = CURRENT_TIMESTAMP
-        WHERE close_activity_id = ?
-      `, [
-        typeKey,
-        leadEmail,
-        leadName,
-        userEmail,
-        userName,
-        resultValue,
-        activity.date_updated || activityDate,
-        activity.id
-      ])
+      await prisma.customActivity.update({
+        where: { closeActivityId: activity.id },
+        data: {
+          activityType: typeKey,
+          leadEmail,
+          leadName,
+          userEmail,
+          userName,
+          resultValue,
+          dateUpdated,
+          syncedAt: new Date()
+        }
+      })
       return true // Aktualisiert
     } else {
       // Insert
-      await dbRun(`
-        INSERT INTO custom_activities (
-          id, close_activity_id, activity_type, activity_type_id,
-          lead_id, lead_email, lead_name,
-          user_id, user_email, user_name,
-          result_field_id, result_value,
-          date_created, date_updated, synced_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-      `, [
-        activityId,
-        activity.id,
-        typeKey,
-        typeConfig.id,
-        activity.lead_id,
-        leadEmail,
-        leadName,
-        userId,
-        userEmail,
-        userName,
-        typeConfig.resultField,
-        resultValue,
-        activityDate,
-        activity.date_updated || activityDate
-      ])
+      await prisma.customActivity.create({
+        data: {
+          id: activityId,
+          closeActivityId: activity.id,
+          activityType: typeKey,
+          activityTypeId: typeConfig.id,
+          leadId: activity.lead_id,
+          leadEmail,
+          leadName,
+          userId,
+          userEmail,
+          userName,
+          resultFieldId: typeConfig.resultField,
+          resultValue,
+          dateCreated: activityDate,
+          dateUpdated,
+          syncedAt: new Date()
+        }
+      })
       return true // Neu eingefügt
     }
   }
@@ -310,13 +297,14 @@ export class CustomActivitiesSyncService {
     console.log('\n🔗 Matching Custom Activities zu Calendly Events...\n')
     
     // Hole alle unmatched Activities
-    const activities = await dbAll(`
-      SELECT * FROM custom_activities 
-      WHERE calendly_event_id IS NULL
-      AND lead_email IS NOT NULL
-      ORDER BY date_created DESC
-      LIMIT 1000
-    `)
+    const activities = await prisma.customActivity.findMany({
+      where: {
+        calendlyEventId: null,
+        leadEmail: { not: null }
+      },
+      orderBy: { dateCreated: 'desc' },
+      take: 1000
+    })
     
     console.log(`   → ${activities.length} unmatched activities`)
     
@@ -341,38 +329,37 @@ export class CustomActivitiesSyncService {
     // Suche Calendly-Events mit gleicher E-Mail
     // Zeitfenster: ±3 Tage um Activity-Datum
     
-    const activityDate = new Date(activity.date_created)
+    if (!activity.leadEmail) return null
+    
+    const activityDate = new Date(activity.dateCreated)
     const beforeDate = new Date(activityDate)
     beforeDate.setDate(beforeDate.getDate() - 3)
     const afterDate = new Date(activityDate)
     afterDate.setDate(afterDate.getDate() + 3)
     
-    const candidates = await dbAll(`
-      SELECT 
-        ce.*,
-        ABS(JULIANDAY(ce.start_time) - JULIANDAY(?)) as date_diff
-      FROM calendly_events ce
-      WHERE LOWER(ce.invitee_email) = LOWER(?)
-      AND ce.start_time BETWEEN ? AND ?
-      AND ce.id NOT IN (
-        SELECT calendly_event_id 
-        FROM custom_activities 
-        WHERE calendly_event_id IS NOT NULL
-      )
-      ORDER BY date_diff ASC
-      LIMIT 5
-    `, [
-      activity.date_created,
-      activity.lead_email,
-      beforeDate.toISOString(),
-      afterDate.toISOString()
-    ])
+    // Hole alle Events, die bereits mit Activities verknüpft sind
+    const usedEventIds = await prisma.customActivity.findMany({
+      where: { calendlyEventId: { not: null } },
+      select: { calendlyEventId: true }
+    })
+    const usedIds = usedEventIds.map(a => a.calendlyEventId).filter(Boolean) as string[]
+    
+    // Suche passende Events
+    const candidates = await prisma.calendlyEvent.findMany({
+      where: {
+        inviteeEmail: { equals: activity.leadEmail, mode: 'insensitive' },
+        startTime: { gte: beforeDate, lte: afterDate },
+        id: { notIn: usedIds }
+      },
+      orderBy: { startTime: 'asc' },
+      take: 5
+    })
     
     if (candidates.length === 0) return null
     
     // Scoring: Je näher das Datum, desto besser
     const bestMatch = candidates[0]
-    const dateDiff = bestMatch.date_diff || 0
+    const dateDiff = Math.abs((bestMatch.startTime.getTime() - activityDate.getTime()) / (1000 * 60 * 60 * 24)) // Tage
     const matchScore = Math.max(0, 1.0 - (dateDiff / 3.0)) // 0-1 Score
     
     return {
@@ -384,14 +371,14 @@ export class CustomActivitiesSyncService {
 
   // Verknüpfe Activity mit Event
   async linkActivityToEvent(activity: any, match: any) {
-    await dbRun(`
-      UPDATE custom_activities 
-      SET 
-        calendly_event_id = ?,
-        matched_at = CURRENT_TIMESTAMP,
-        match_confidence = ?
-      WHERE id = ?
-    `, [match.event.id, match.score, activity.id])
+    await prisma.customActivity.update({
+      where: { id: activity.id },
+      data: {
+        calendlyEventId: match.event.id,
+        matchedAt: new Date(),
+        matchConfidence: match.score
+      }
+    })
   }
 }
 
