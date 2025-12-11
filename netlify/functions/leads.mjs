@@ -177,102 +177,53 @@ export async function handler(event, context) {
     let leadResult
 
     if (existing && existing.length > 0) {
-      // UPDATE existing lead - only update fields that were provided
-      const updates = []
-      const values = []
-
-      if (firstName !== undefined && firstName !== null) {
-        updates.push(`"firstName" = $${values.length + 1}`)
-        values.push(firstName)
-      }
-      if (lastName !== undefined && lastName !== null) {
-        updates.push(`"lastName" = $${values.length + 1}`)
-        values.push(lastName)
-      }
-      if (phone !== undefined && phone !== null) {
-        updates.push(`phone = $${values.length + 1}`)
-        values.push(phone)
-      }
-      if (body.company !== undefined && body.company !== null) {
-        updates.push(`company = $${values.length + 1}`)
-        values.push(body.company)
-      }
-      // Always update source (use provided or default)
-      updates.push(`source = $${values.length + 1}`)
-      values.push(leadSource)
-      if (notes !== undefined && notes !== null) {
-        updates.push(`notes = $${values.length + 1}`)
-        values.push(notes)
-      }
-      if (automationData !== undefined && automationData !== null) {
-        updates.push(`"automationData" = $${values.length + 1}`)
-        values.push(automationData)
-      }
-
-      // Always update updatedAt
-      updates.push(`"updatedAt" = NOW()`)
-      values.push(email) // For WHERE clause
-
-      if (updates.length > 1) {
-        // Build UPDATE query with RETURNING
-        const updateQuery = `
-          UPDATE "Lead" 
-          SET ${updates.join(', ')}
-          WHERE email = $${values.length}
-          RETURNING *
-        `
-        const result = await sql.unsafe(updateQuery, values)
-        leadResult = result[0]
-      } else {
-        // Only update updatedAt if no other fields to update
-        const result = await sql`
-          UPDATE "Lead" 
-          SET "updatedAt" = NOW()
-          WHERE email = ${email}
-          RETURNING *
-        `
-        leadResult = result[0]
-      }
+      // UPDATE existing lead using COALESCE - only update fields that are provided
+      const result = await sql`
+        UPDATE "Lead" 
+        SET 
+          "firstName" = COALESCE(${firstName}, "firstName"),
+          "lastName" = COALESCE(${lastName}, "lastName"),
+          phone = COALESCE(${phone}, phone),
+          company = COALESCE(${body.company || null}, company),
+          source = COALESCE(${leadSource}, source),
+          notes = COALESCE(${notes}, notes),
+          "automationData" = COALESCE(${automationData}, "automationData"),
+          "updatedAt" = NOW()
+        WHERE email = ${email}
+        RETURNING *
+      `
+      leadResult = result[0]
     } else {
       // INSERT new lead
       // Prisma table: "Lead" (PascalCase)
       // Do NOT set phaseId - leave it NULL
-      const insertFields = ['email', '"createdAt"', '"updatedAt"', 'source']
-      const insertValues = [email, new Date(), new Date(), leadSource]
-
-      if (firstName !== undefined && firstName !== null) {
-        insertFields.push('"firstName"')
-        insertValues.push(firstName)
-      }
-      if (lastName !== undefined && lastName !== null) {
-        insertFields.push('"lastName"')
-        insertValues.push(lastName)
-      }
-      if (phone !== undefined && phone !== null) {
-        insertFields.push('phone')
-        insertValues.push(phone)
-      }
-      if (body.company !== undefined && body.company !== null) {
-        insertFields.push('company')
-        insertValues.push(body.company)
-      }
-      if (notes !== undefined && notes !== null) {
-        insertFields.push('notes')
-        insertValues.push(notes)
-      }
-      if (automationData !== undefined && automationData !== null) {
-        insertFields.push('"automationData"')
-        insertValues.push(automationData)
-      }
-
-      const placeholders = insertValues.map((_, idx) => `$${idx + 1}`).join(', ')
-      const insertQuery = `
-        INSERT INTO "Lead" (${insertFields.join(', ')}) 
-        VALUES (${placeholders})
+      const result = await sql`
+        INSERT INTO "Lead" (
+          email,
+          "firstName",
+          "lastName",
+          phone,
+          company,
+          source,
+          notes,
+          "automationData",
+          "createdAt",
+          "updatedAt"
+        ) 
+        VALUES (
+          ${email},
+          ${firstName || null},
+          ${lastName || null},
+          ${phone || null},
+          ${body.company || null},
+          ${leadSource},
+          ${notes || null},
+          ${automationData || null},
+          NOW(),
+          NOW()
+        )
         RETURNING *
       `
-
-      const result = await sql.unsafe(insertQuery, insertValues)
       leadResult = result[0]
     }
 
