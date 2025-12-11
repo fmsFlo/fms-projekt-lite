@@ -3,9 +3,20 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
   
+  // CRITICAL: Allow all Netlify Functions WITHOUT authentication
+  // This must be checked FIRST, before any other checks
+  if (path.startsWith('/.netlify/functions/')) {
+    return NextResponse.next()
+  }
+  
   // Public routes - no auth check
   const publicRoutes = ['/api/login', '/reset-password', '/api/reset-password', '/api/user']
-  if (publicRoutes.includes(path) || path.startsWith('/api/user')) {
+  if (publicRoutes.includes(path) || 
+      path.startsWith('/api/user') || 
+      path.startsWith('/api/make') || 
+      path.startsWith('/api/login') ||
+      path.startsWith('/api/leads/webhook') ||
+      path.startsWith('/api/webhook/')) {
     return NextResponse.next()
   }
   
