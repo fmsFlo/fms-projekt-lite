@@ -211,20 +211,29 @@ async function ensureServiceContacts() {
 
 interface Params { params: { id: string } }
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export default async function ClientDetailPage({ params }: Params) {
   // Auth wird von middleware.ts übernommen
 
-  const client = await prisma.client.findUnique({ where: { id: params.id } })
+  // Parallel queries für bessere Performance
+  const [client, contracts, templates, companySettings] = await Promise.all([
+    prisma.client.findUnique({ where: { id: params.id } }),
+    prisma.contract.findMany({ where: { clientId: params.id }, orderBy: { createdAt: 'desc' } }),
+    prisma.contractTemplate.findMany({ orderBy: { name: 'asc' } }),
+    prisma.companySettings.findFirst()
+  ])
+
   if (!client) return (
     <div className="max-w-5xl mx-auto px-4 py-6">
       <div className="text-sm" style={{ color: 'var(--color-error)' }}>Client nicht gefunden</div>
     </div>
   )
-  await ensureServiceContacts()
-  await ensureServiceTemplates()
-  const contracts = await prisma.contract.findMany({ where: { clientId: client.id }, orderBy: { createdAt: 'desc' } })
-  const templates = await prisma.contractTemplate.findMany({ orderBy: { name: 'asc' } })
-  const companySettings = await prisma.companySettings.findFirst()
+
+  // Diese können im Hintergrund laufen (nicht blockierend)
+  ensureServiceContacts().catch(console.error)
+  ensureServiceTemplates().catch(console.error)
   
   // Baue Adresse zusammen
   const addressParts = [
@@ -266,8 +275,8 @@ export default async function ClientDetailPage({ params }: Params) {
               id: contract.id,
               createdAt: contract.createdAt.toISOString(),
               templateSlug: contract.templateSlug,
-              sevdeskInvoiceId: contract.sevdeskInvoiceId,
-              sevdeskInvoiceNumber: contract.sevdeskInvoiceNumber,
+              sevdeskInvoiceId: contract.sevdeskInvoiceId || null,
+              sevdeskInvoiceNumber: contract.sevdeskInvoiceNumber || null,
             }))}
           />
         </section>

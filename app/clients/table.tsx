@@ -18,12 +18,13 @@ type Client = {
 
 export default function ClientsClient({ initialClients }: { initialClients: Client[] }) {
   const [query, setQuery] = useState('')
-  const [clients, setClients] = useState<Client[]>(initialClients)
+  const [clients, setClients] = useState<Client[]>(initialClients || [])
   const [makeResults, setMakeResults] = useState<Client[]>([])
   const [loadingMake, setLoadingMake] = useState(false)
   const [loadingImport, setLoadingImport] = useState(false)
 
   const filtered = useMemo(() => {
+    if (!clients || clients.length === 0) return []
     const q = query.toLowerCase()
     if (!q) return clients
     return clients.filter(c =>
@@ -39,6 +40,14 @@ export default function ClientsClient({ initialClients }: { initialClients: Clie
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query })
       })
+      
+      // Prüfe ob Response OK ist
+      if (!res.ok) {
+        const errorText = await res.text()
+        console.error('❌ API Error:', res.status, errorText)
+        throw new Error(`API Error: ${res.status} - ${errorText.substring(0, 100)}`)
+      }
+      
       const data = await res.json()
       console.log('🔍 Make Response:', data)
       console.log('📊 Results:', data.results)
@@ -50,9 +59,9 @@ export default function ClientsClient({ initialClients }: { initialClients: Clie
       }
       
       setMakeResults(data.results || [])
-    } catch (err) {
+    } catch (err: any) {
       console.error('❌ Fehler bei Make-Suche:', err)
-      alert('Fehler bei der Make-Suche. Prüfe die Browser-Console (F12)!')
+      alert(`Fehler bei der Make-Suche: ${err.message || 'Unbekannter Fehler'}. Prüfe die Browser-Console (F12)!`)
     } finally {
       setLoadingMake(false)
     }

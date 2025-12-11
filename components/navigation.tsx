@@ -13,29 +13,52 @@ export default function Navigation() {
   const router = useRouter()
 
   useEffect(() => {
+    let isMounted = true
+    
     async function getUser() {
       try {
         const response = await fetch('/api/user', {
           credentials: 'include',
-          cache: 'no-store'
+          cache: 'no-store',
+          signal: AbortSignal.timeout(5000) // 5 Sekunden Timeout
         })
+        if (!isMounted) return
+        
         if (!response.ok) {
+          // 401 ist OK - bedeutet einfach nicht eingeloggt
+          if (response.status === 401) {
+            setUser(null)
+            setLoading(false)
+            return
+          }
           console.error('❌ Navigation: /api/user returned', response.status)
           setLoading(false)
           return
         }
         const data = await response.json()
+        if (!isMounted) return
         console.log('✅ Navigation: User loaded', data.role, 'isActive:', data.isActive)
         setUser(data)
         setLoading(false)
-      } catch (error) {
-        console.error('❌ Navigation: Error fetching user:', error)
+      } catch (error: any) {
+        if (!isMounted) return
+        // Timeout oder Netzwerkfehler - nicht kritisch
+        if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+          console.warn('⚠️ Navigation: Timeout beim Laden des Users')
+        } else {
+          console.error('❌ Navigation: Error fetching user:', error)
+        }
+        setUser(null)
         setLoading(false)
       }
     }
     
     // Nur EINMAL beim Mount aufrufen - KEIN Interval mehr!
     getUser()
+    
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   // Zeige immer etwas an, auch wenn User nicht geladen ist
