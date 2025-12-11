@@ -163,35 +163,79 @@ export async function handler(event, context) {
     const automationData = close_lead_id ? JSON.stringify({ close_lead_id }) : null
 
     // Get default lead phase (required for new leads)
-    // Prisma table names: Model PipelinePhase -> table pipeline_phases (snake_case, plural)
+    // Prisma table names: Model PipelinePhase -> table "PipelinePhase" (PascalCase, no @@map)
     // Prisma column names: camelCase stays camelCase (isDefault, isActive, order)
-    const defaultPhase = await sql`
-      SELECT id FROM pipeline_phases 
+    let defaultPhase = await sql`
+      SELECT id FROM "PipelinePhase" 
       WHERE type = 'lead' AND "isDefault" = TRUE AND "isActive" = TRUE 
       ORDER BY "order" ASC 
       LIMIT 1
     `
 
+    // If no default phase found, try to get any active lead phase
     if (!defaultPhase || defaultPhase.length === 0) {
-      return {
-        statusCode: 500,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          error: 'No default active lead phase found',
-          details: 'Please configure at least one default lead phase in your settings.'
-        })
-      }
+      defaultPhase = await sql`
+        SELECT id FROM "PipelinePhase" 
+        WHERE type = 'lead' AND "isActive" = TRUE 
+        ORDER BY "order" ASC 
+        LIMIT 1
+      `
     }
-    const phaseId = defaultPhase[0].id
+
+    // If still no phase found, create a default one automatically
+    let phaseId
+    if (!defaultPhase || defaultPhase.length === 0) {
+      console.log('⚠️ No lead phase found, creating default phase...')
+      try {
+        const newPhase = await sql`
+          INSERT INTO "PipelinePhase" (
+            "createdAt", 
+            "updatedAt", 
+            name, 
+            slug, 
+            "order", 
+            type, 
+            "isDefault", 
+            "isActive"
+          )
+          VALUES (
+            NOW(),
+            NOW(),
+            'Neu',
+            'lead-new',
+            0,
+            'lead',
+            TRUE,
+            TRUE
+          )
+          RETURNING id
+        `
+        phaseId = newPhase[0].id
+        console.log('✅ Default lead phase created:', phaseId)
+      } catch (createError) {
+        console.error('❌ Error creating default phase:', createError)
+        // If creation fails, we can't proceed without a phaseId
+        return {
+          statusCode: 500,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            error: 'No lead phase found and could not create default phase',
+            details: 'Please create at least one lead phase in your settings, or check database permissions.'
+          })
+        }
+      }
+    } else {
+      phaseId = defaultPhase[0].id
+    }
 
     // Check if lead exists
-    // Prisma table names: Model Lead -> table leads (snake_case, plural)
+    // Prisma table names: Model Lead -> table "Lead" (PascalCase, no @@map)
     // Prisma column names: camelCase stays camelCase (firstName, lastName, createdAt, etc.)
     const existing = await sql`
-      SELECT * FROM leads 
+      SELECT * FROM "Lead" 
       WHERE email = ${email} 
       LIMIT 1
     `
@@ -239,7 +283,7 @@ export async function handler(event, context) {
       if (updates.length > 1) {
         // Build UPDATE query with RETURNING
         const updateQuery = `
-          UPDATE leads 
+          UPDATE "Lead" 
           SET ${updates.join(', ')}
           WHERE email = $${values.length}
           RETURNING *
@@ -249,7 +293,7 @@ export async function handler(event, context) {
       } else {
         // Only update updatedAt if no other fields to update
         const result = await sql`
-          UPDATE leads 
+          UPDATE "Lead" 
           SET "updatedAt" = NOW()
           WHERE email = ${email}
           RETURNING *
@@ -294,7 +338,7 @@ export async function handler(event, context) {
 
       const placeholders = insertValues.map((_, idx) => `$${idx + 1}`).join(', ')
       const insertQuery = `
-        INSERT INTO leads (${insertFields.join(', ')}) 
+        INSERT INTO "Lead" (${insertFields.join(', ')}) 
         VALUES (${placeholders})
         RETURNING *
       `
