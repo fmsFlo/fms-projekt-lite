@@ -49,7 +49,8 @@ const settingsSchema = z.object({
   stripePublishableKey: z.string().nullable().optional().transform(v => (v && v.trim()) || undefined),
   sevdeskApiToken: z.string().nullable().optional().transform(v => (v && v.trim()) || undefined),
   sevdeskApiUrl: z.string().nullable().optional().transform(v => (v && v.trim()) || undefined),
-  closeApiKey: z.string().nullable().optional().transform(v => (v && v.trim()) || undefined)
+  closeApiKey: z.string().nullable().optional().transform(v => (v && v.trim()) || undefined),
+  calendlyApiToken: z.string().nullable().optional().transform(v => (v && v.trim()) || undefined)
 })
 
 export async function GET(req: NextRequest) {
@@ -91,6 +92,7 @@ export async function POST(req: NextRequest) {
       'billingStreet', 'billingHouseNumber', 'billingZip', 'billingCity', 'billingEmail',
       'makeWebhookUrl', 'makeApiKey',
       'closeApiKey',
+      'calendlyApiToken',
       'logoUrl', 'companySlogan',
       'advisorIban', 'paymentSubject', 'creditorId',
       'stripeSecretKey', 'stripePublishableKey',

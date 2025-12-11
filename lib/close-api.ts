@@ -43,17 +43,18 @@ export class CloseApiService {
       throw new Error('CLOSE_API_KEY ist nicht definiert. Bitte in den Einstellungen konfigurieren.')
     }
     
-    // Base64 encoding für Next.js (Browser und Node.js kompatibel)
-    const authString = typeof Buffer !== 'undefined' 
-      ? Buffer.from(this.apiKey + ':').toString('base64')
-      : btoa(this.apiKey + ':')
+    // Base64 encoding für Node.js (Server-seitig)
+    // Close API erwartet: Basic base64(apiKey:)
+    const authString = Buffer.from(this.apiKey + ':').toString('base64')
     
     this.client = axios.create({
       baseURL: this.baseURL,
       headers: {
         'Authorization': `Basic ${authString}`,
         'Content-Type': 'application/json'
-      }
+      },
+      // Error handling: Prüfe ob Response JSON ist
+      validateStatus: (status) => status < 500, // Erlaube 4xx für besseres Error Handling
     })
   }
 
@@ -133,7 +134,22 @@ export class CloseApiService {
 
         try {
           const response = await this.client.get('/activity/', { params })
-          const activities = response.data.data || []
+          
+          // Prüfe ob Response HTML ist (Fehler-Seite)
+          if (typeof response.data === 'string' && response.data.trim().startsWith('<!')) {
+            console.error('[CloseApi] Close API hat HTML statt JSON zurückgegeben')
+            console.error('[CloseApi] Status:', response.status)
+            console.error('[CloseApi] Response (erste 500 Zeichen):', response.data.substring(0, 500))
+            throw new Error(`Close API Fehler: Ungültige Antwort (Status ${response.status}). Bitte prüfen Sie Ihren API Key.`)
+          }
+          
+          // Prüfe auf 401/403
+          if (response.status === 401 || response.status === 403) {
+            console.error('[CloseApi] Authentifizierungsfehler:', response.status)
+            throw new Error(`Close API Authentifizierungsfehler (${response.status}): Bitte prüfen Sie Ihren API Key in den Einstellungen.`)
+          }
+          
+          const activities = response.data?.data || []
         
           // Filtere nur Custom Activities und nach custom_activity_type_id
           const customActivities = activities.filter((activity: any) => {
@@ -147,13 +163,19 @@ export class CloseApiService {
           // Füge Activities direkt hinzu
           allActivities.push(...customActivities)
         
-          hasMore = response.data.has_more || false
+          hasMore = response.data?.has_more || false
           skip += limit
         } catch (apiError: any) {
           console.error('[CloseApi] API Fehler:', apiError.message)
           if (apiError.response) {
             console.error('[CloseApi] Status:', apiError.response.status)
-            console.error('[CloseApi] Data:', JSON.stringify(apiError.response.data).substring(0, 200))
+            // Prüfe ob Response HTML ist
+            if (typeof apiError.response.data === 'string' && apiError.response.data.trim().startsWith('<!')) {
+              console.error('[CloseApi] Response ist HTML (erste 500 Zeichen):', apiError.response.data.substring(0, 500))
+              throw new Error(`Close API Fehler: Ungültige Antwort (Status ${apiError.response.status}). Bitte prüfen Sie Ihren API Key.`)
+            } else {
+              console.error('[CloseApi] Data:', JSON.stringify(apiError.response.data).substring(0, 200))
+            }
           }
           // Bei Fehler: versuche ohne Filter
           if (skip === 0 && Object.keys(filters).length > 0) {

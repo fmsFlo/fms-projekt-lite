@@ -75,8 +75,10 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
       const chromium = await import('@sparticuz/chromium')
       const puppeteerCore = await import('puppeteer-core')
       
-      // Chromium für Netlify konfigurieren
-      chromium.setGraphicsMode(false)
+      // Chromium für Netlify konfigurieren (wenn verfügbar)
+      if (chromium.setGraphicsMode && typeof chromium.setGraphicsMode === 'function') {
+        chromium.setGraphicsMode(false)
+      }
       
       browser = await puppeteerCore.default.launch({
         args: chromium.args,

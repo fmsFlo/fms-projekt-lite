@@ -18,6 +18,7 @@ export default function SettingsPage() {
     billingStreet: '', billingHouseNumber: '', billingZip: '', billingCity: '', billingEmail: '',
     makeWebhookUrl: '', makeApiKey: '',
     closeApiKey: '',
+    calendlyApiToken: '',
     logoUrl: '', companySlogan: '',
     advisorIban: '', paymentSubject: '', creditorId: '',
     stripeSecretKey: '', stripePublishableKey: '',
@@ -93,6 +94,7 @@ export default function SettingsPage() {
           makeWebhookUrl: data.makeWebhookUrl || '',
           makeApiKey: data.makeApiKey || '',
           closeApiKey: data.closeApiKey || '',
+          calendlyApiToken: data.calendlyApiToken || '',
           logoUrl: data.logoUrl || '',
           companySlogan: data.companySlogan || '',
           advisorIban: data.advisorIban || '',
@@ -644,6 +646,33 @@ export default function SettingsPage() {
                     />
                     <p className="text-xs text-gray-500 mt-1">
                       Finden Sie Ihren API Key in Close unter: Settings → API Keys → Create API Key
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                <h2 className="text-lg font-semibold mb-4 text-gray-900">Calendly Integration</h2>
+                <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4 flex items-start gap-2">
+                  <span className="text-blue-600 text-xl">ℹ️</span>
+                  <p className="text-sm text-blue-800">
+                    Konfigurieren Sie Ihren Calendly API Token für die Synchronisation von Terminen. 
+                    Dieser wird benötigt, um Calendly Events zu synchronisieren und mit Close Activities zu verknüpfen.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <label className="block text-sm mb-1">Calendly API Token *</label>
+                    <input 
+                      name="calendlyApiToken" 
+                      type="password"
+                      value={form.calendlyApiToken} 
+                      onChange={onChange} 
+                      className="w-full border border-gray-300 rounded-md px-3 py-2" 
+                      placeholder="Ihr Calendly API Token" 
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Finden Sie Ihren API Token in Calendly unter: Settings → Integrations → API & Webhooks → Personal Access Tokens
                     </p>
                   </div>
                 </div>
