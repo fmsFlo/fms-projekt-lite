@@ -68,67 +68,52 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
       LIMIT 1
     `
 
-    // Prepare fields for update/insert (only include fields that were provided)
-    const fieldsToUpdate: Record<string, any> = {}
-    const fieldsToInsert: Record<string, any> = {
-      email: email
-    }
-
-    // Add optional fields if provided (handle null/undefined safely)
-    if (body.close_lead_id !== undefined && body.close_lead_id !== null) {
-      fieldsToUpdate.close_lead_id = body.close_lead_id
-      fieldsToInsert.close_lead_id = body.close_lead_id
-    }
-    if (body.name !== undefined && body.name !== null) {
-      fieldsToUpdate.name = body.name
-      fieldsToInsert.name = body.name
-    }
-    if (body.phone !== undefined && body.phone !== null) {
-      fieldsToUpdate.phone = body.phone
-      fieldsToInsert.phone = body.phone
-    }
-    if (body.status !== undefined && body.status !== null) {
-      fieldsToUpdate.status = body.status
-      fieldsToInsert.status = body.status
-    }
-    if (body.source !== undefined && body.source !== null) {
-      fieldsToUpdate.source = body.source
-      fieldsToInsert.source = body.source
-    }
-    if (body.address !== undefined && body.address !== null) {
-      fieldsToUpdate.address = body.address
-      fieldsToInsert.address = body.address
-    }
-    if (body.bank !== undefined && body.bank !== null) {
-      fieldsToUpdate.bank = body.bank
-      fieldsToInsert.bank = body.bank
-    }
-
     if (existingLead && existingLead.length > 0) {
       // Update existing lead - only update fields that were provided
-      const updateKeys = Object.keys(fieldsToUpdate)
-      
-      if (updateKeys.length > 0) {
-        // Build UPDATE query with proper parameterized values
-        const setParts: string[] = []
-        const params: any[] = []
-        
-        updateKeys.forEach((key) => {
-          setParts.push(`${key} = $${params.length + 1}`)
-          params.push(fieldsToUpdate[key])
-        })
-        
-        // Add updated_at
-        setParts.push(`updated_at = NOW()`)
-        params.push(email) // For WHERE clause
-        
+      const updates: string[] = []
+      const values: any[] = []
+
+      if (body.close_lead_id !== undefined && body.close_lead_id !== null) {
+        updates.push(`close_lead_id = $${values.length + 1}`)
+        values.push(body.close_lead_id)
+      }
+      if (body.name !== undefined && body.name !== null) {
+        updates.push(`name = $${values.length + 1}`)
+        values.push(body.name)
+      }
+      if (body.phone !== undefined && body.phone !== null) {
+        updates.push(`phone = $${values.length + 1}`)
+        values.push(body.phone)
+      }
+      if (body.status !== undefined && body.status !== null) {
+        updates.push(`status = $${values.length + 1}`)
+        values.push(body.status)
+      }
+      if (body.source !== undefined && body.source !== null) {
+        updates.push(`source = $${values.length + 1}`)
+        values.push(body.source)
+      }
+      if (body.address !== undefined && body.address !== null) {
+        updates.push(`address = $${values.length + 1}`)
+        values.push(body.address)
+      }
+      if (body.bank !== undefined && body.bank !== null) {
+        updates.push(`bank = $${values.length + 1}`)
+        values.push(body.bank)
+      }
+
+      // Always update updated_at
+      updates.push(`updated_at = NOW()`)
+
+      if (updates.length > 1) {
+        // Build UPDATE query - add email to values for WHERE clause
+        values.push(email)
         const updateQuery = `
           UPDATE leads 
-          SET ${setParts.join(', ')}
-          WHERE email = $${params.length}
+          SET ${updates.join(', ')}
+          WHERE email = $${values.length}
         `
-        
-        await sql.unsafe(updateQuery, params)
+        await sql.unsafe(updateQuery, values)
       } else {
         // Only update updated_at if no other fields to update
         await sql`
@@ -150,15 +135,41 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
       }
     } else {
       // Insert new lead
-      fieldsToInsert.created_at = new Date()
-      fieldsToInsert.updated_at = new Date()
+      const insertFields: string[] = ['email', 'created_at', 'updated_at']
+      const insertValues: any[] = [email, new Date(), new Date()]
 
-      const insertKeys = Object.keys(fieldsToInsert)
-      const insertValues = Object.values(fieldsToInsert)
-      const placeholders = insertKeys.map((_, idx) => `$${idx + 1}`).join(', ')
+      if (body.close_lead_id !== undefined && body.close_lead_id !== null) {
+        insertFields.push('close_lead_id')
+        insertValues.push(body.close_lead_id)
+      }
+      if (body.name !== undefined && body.name !== null) {
+        insertFields.push('name')
+        insertValues.push(body.name)
+      }
+      if (body.phone !== undefined && body.phone !== null) {
+        insertFields.push('phone')
+        insertValues.push(body.phone)
+      }
+      if (body.status !== undefined && body.status !== null) {
+        insertFields.push('status')
+        insertValues.push(body.status)
+      }
+      if (body.source !== undefined && body.source !== null) {
+        insertFields.push('source')
+        insertValues.push(body.source)
+      }
+      if (body.address !== undefined && body.address !== null) {
+        insertFields.push('address')
+        insertValues.push(body.address)
+      }
+      if (body.bank !== undefined && body.bank !== null) {
+        insertFields.push('bank')
+        insertValues.push(body.bank)
+      }
 
+      const placeholders = insertValues.map((_, idx) => `$${idx + 1}`).join(', ')
       const insertQuery = `
-        INSERT INTO leads (${insertKeys.join(', ')}) 
+        INSERT INTO leads (${insertFields.join(', ')}) 
         VALUES (${placeholders})
       `
 
@@ -189,4 +200,4 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
   }
 }
 
-// Final API endpoint in production: /.netlify/functions/leads
+// Production endpoint: /.netlify/functions/leads
