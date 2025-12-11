@@ -136,6 +136,9 @@ model CompanySettings {
   // Close Integration
   closeApiKey               String?
   
+  // Calendly Integration
+  calendlyApiToken          String?
+  
   // Branding
   logoUrl                   String?
   companySlogan             String?
@@ -281,6 +284,9 @@ model CalendlyEvent {
   
   // Sync-Informationen
   syncedAt            DateTime @default(now())
+  
+  // Relation zu Custom Activities
+  customActivities    CustomActivity[]
   
   @@index([inviteeEmail])
   @@index([startTime])
