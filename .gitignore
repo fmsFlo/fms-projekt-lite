@@ -41,3 +41,7 @@ server.log
 
 # Local Netlify folder
 .netlify
+
+# Exclude large folders that shouldn't be in repo
+fms-dashboard-master/
+docreate-mvp@0.1.0/
