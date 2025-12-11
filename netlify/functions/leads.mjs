@@ -162,74 +162,8 @@ export async function handler(event, context) {
     // Store close_lead_id in automationData as JSON
     const automationData = close_lead_id ? JSON.stringify({ close_lead_id }) : null
 
-    // Get default lead phase (required for new leads)
-    // Prisma table names: Model PipelinePhase -> table "PipelinePhase" (PascalCase, no @@map)
-    // Prisma column names: camelCase stays camelCase (isDefault, isActive, order)
-    let defaultPhase = await sql`
-      SELECT id FROM "PipelinePhase" 
-      WHERE type = 'lead' AND "isDefault" = TRUE AND "isActive" = TRUE 
-      ORDER BY "order" ASC 
-      LIMIT 1
-    `
-
-    // If no default phase found, try to get any active lead phase
-    if (!defaultPhase || defaultPhase.length === 0) {
-      defaultPhase = await sql`
-        SELECT id FROM "PipelinePhase" 
-        WHERE type = 'lead' AND "isActive" = TRUE 
-        ORDER BY "order" ASC 
-        LIMIT 1
-      `
-    }
-
-    // If still no phase found, create a default one automatically
-    let phaseId
-    if (!defaultPhase || defaultPhase.length === 0) {
-      console.log('⚠️ No lead phase found, creating default phase...')
-      try {
-        const newPhase = await sql`
-          INSERT INTO "PipelinePhase" (
-            "createdAt", 
-            "updatedAt", 
-            name, 
-            slug, 
-            "order", 
-            type, 
-            "isDefault", 
-            "isActive"
-          )
-          VALUES (
-            NOW(),
-            NOW(),
-            'Neu',
-            'lead-new',
-            0,
-            'lead',
-            TRUE,
-            TRUE
-          )
-          RETURNING id
-        `
-        phaseId = newPhase[0].id
-        console.log('✅ Default lead phase created:', phaseId)
-      } catch (createError) {
-        console.error('❌ Error creating default phase:', createError)
-        // If creation fails, we can't proceed without a phaseId
-        return {
-          statusCode: 500,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            error: 'No lead phase found and could not create default phase',
-            details: 'Please create at least one lead phase in your settings, or check database permissions.'
-          })
-        }
-      }
-    } else {
-      phaseId = defaultPhase[0].id
-    }
+    // Set default source if not provided
+    const leadSource = source || 'close_crm'
 
     // Check if lead exists
     // Prisma table names: Model Lead -> table "Lead" (PascalCase, no @@map)
@@ -263,10 +197,9 @@ export async function handler(event, context) {
         updates.push(`company = $${values.length + 1}`)
         values.push(body.company)
       }
-      if (source !== undefined && source !== null) {
-        updates.push(`source = $${values.length + 1}`)
-        values.push(source)
-      }
+      // Always update source (use provided or default)
+      updates.push(`source = $${values.length + 1}`)
+      values.push(leadSource)
       if (notes !== undefined && notes !== null) {
         updates.push(`notes = $${values.length + 1}`)
         values.push(notes)
@@ -302,10 +235,10 @@ export async function handler(event, context) {
       }
     } else {
       // INSERT new lead
-      // Prisma table: leads (snake_case, plural)
-      // Prisma columns: camelCase (firstName, lastName, createdAt, updatedAt, phaseId, automationData)
-      const insertFields = ['email', '"createdAt"', '"updatedAt"', '"phaseId"']
-      const insertValues = [email, new Date(), new Date(), phaseId]
+      // Prisma table: "Lead" (PascalCase)
+      // Do NOT set phaseId - leave it NULL
+      const insertFields = ['email', '"createdAt"', '"updatedAt"', 'source']
+      const insertValues = [email, new Date(), new Date(), leadSource]
 
       if (firstName !== undefined && firstName !== null) {
         insertFields.push('"firstName"')
@@ -322,10 +255,6 @@ export async function handler(event, context) {
       if (body.company !== undefined && body.company !== null) {
         insertFields.push('company')
         insertValues.push(body.company)
-      }
-      if (source !== undefined && source !== null) {
-        insertFields.push('source')
-        insertValues.push(source)
       }
       if (notes !== undefined && notes !== null) {
         insertFields.push('notes')

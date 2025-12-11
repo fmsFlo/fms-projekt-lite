@@ -195,8 +195,8 @@ model Lead {
   company     String?
   
   // Status
-  phaseId     String   // Aktuelle Lead-Phase
-  phase       PipelinePhase @relation(fields: [phaseId], references: [id])
+  phaseId     String?  // Aktuelle Lead-Phase (optional)
+  phase       PipelinePhase? @relation(fields: [phaseId], references: [id])
   
   // Verknüpfung zu Client (optional, falls Lead konvertiert wurde)
   clientId    String?
