@@ -1,5 +1,5 @@
 [build]
-  command = "npx prisma generate && npx prisma migrate deploy && npm run build"
+  command = "DATABASE_URL=$NETLIFY_DATABASE_URL_UNPOOLED npx prisma generate && DATABASE_URL=$NETLIFY_DATABASE_URL_UNPOOLED npx prisma migrate deploy && npm run build"
 
 [build.environment]
   NODE_VERSION = "18"
