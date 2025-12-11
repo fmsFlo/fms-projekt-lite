@@ -1,0 +1,37 @@
+.appointment-conversion {
+  background: #1a1f2e;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.conversion-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.conversion-rate {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rate-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rate-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #4a90e2;
+}
+
+.avg-days {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+}
+

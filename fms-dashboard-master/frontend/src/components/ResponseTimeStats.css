@@ -1,0 +1,137 @@
+/* Ultra-Professional Compact Response Time Stats */
+
+.response-time-compact {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.response-time-header-compact {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.response-time-title-compact {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.response-time-avg-compact {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4a90e2;
+}
+
+.response-time-bars-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.bar-item-compact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bar-label-compact {
+  font-size: 11px;
+  font-weight: 500;
+  min-width: 60px;
+  text-align: left;
+}
+
+.bar-label-compact.good {
+  color: #0ea66e;
+}
+
+.bar-label-compact.warning {
+  color: #e3a008;
+}
+
+.bar-label-compact.bad {
+  color: #dc2626;
+}
+
+.bar-container-compact {
+  flex: 1;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.bar-fill-compact {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+
+.bar-fill-compact.good {
+  background: #0ea66e;
+}
+
+.bar-fill-compact.warning {
+  background: #e3a008;
+}
+
+.bar-fill-compact.bad {
+  background: #dc2626;
+}
+
+.bar-value-compact {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  min-width: 70px;
+  text-align: right;
+}
+
+.not-contacted-compact {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: rgba(227, 160, 8, 0.1);
+  border: 1px solid rgba(227, 160, 8, 0.2);
+  border-radius: 4px;
+  font-size: 10px;
+  color: #e3a008;
+  text-align: center;
+}
+
+/* Original Full Version Styles (for backwards compatibility) */
+.response-time-stats {
+  background: transparent;
+  padding: 0;
+}
+
+.response-time-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 3px solid #396a90;
+}
+
+.response-time-header h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1b2a39;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.no-data {
+  padding: 3rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+}

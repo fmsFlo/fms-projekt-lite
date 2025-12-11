@@ -43,5 +43,9 @@ server.log
 .netlify
 
 # Exclude large folders that shouldn't be in repo
-fms-dashboard-master/
+# fms-dashboard-master/ - DO NOT exclude entire folder, only node_modules
+fms-dashboard-master/**/node_modules/
+fms-dashboard-master/**/.next/
+fms-dashboard-master/**/build/
+fms-dashboard-master/**/dist/
 docreate-mvp@0.1.0/
