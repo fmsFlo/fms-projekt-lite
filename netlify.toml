@@ -1,5 +1,6 @@
 [build]
   command = "DATABASE_URL=$NETLIFY_DATABASE_URL_UNPOOLED npx prisma generate && DATABASE_URL=$NETLIFY_DATABASE_URL_UNPOOLED npx prisma migrate deploy && npm run build"
+  publish = ".next"
 
 [build.environment]
   NODE_VERSION = "18"
@@ -7,4 +8,8 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+[functions]
+  external_node_modules = ["@prisma/client", ".prisma/client"]
+  node_bundler = "esbuild"
 
