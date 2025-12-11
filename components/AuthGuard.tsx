@@ -10,40 +10,62 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout
+    let isMounted = true
+    
     async function checkAuth() {
       try {
-        console.log('🔍 AuthGuard: Checking authentication...')
+        // Timeout nach 10 Sekunden
+        timeoutId = setTimeout(() => {
+          if (isMounted) {
+            console.error('❌ AuthGuard: Timeout - redirecting to /login')
+            setLoading(false)
+            router.push('/login')
+          }
+        }, 10000)
+        
         const response = await fetch('/api/user', {
           credentials: 'include',
           cache: 'no-store'
         })
-        console.log('🔍 AuthGuard: Response status:', response.status)
+        
+        clearTimeout(timeoutId)
+        
+        if (!isMounted) return
+        
         if (!response.ok) {
-          console.error('❌ AuthGuard: Not authenticated, redirecting to /login')
+          setLoading(false)
           router.push('/login')
           return
         }
+        
         const user = await response.json()
-        console.log('✅ AuthGuard: User authenticated', user.role, 'isActive:', user.isActive)
-        if (!user) {
-          console.error('❌ AuthGuard: No user data, redirecting to /login')
+        if (!isMounted) return
+        
+        if (!user || user.isActive === false) {
+          setLoading(false)
           router.push('/login')
           return
         }
-        // isActive wird jetzt von /api/user zurückgegeben
-        if (user.isActive === false) {
-          console.error('❌ AuthGuard: User not active, redirecting to /login')
-          router.push('/login')
-          return
-        }
+        
         setAuthorized(true)
         setLoading(false)
       } catch (error) {
-        console.error('❌ AuthGuard: Error:', error)
-        router.push('/login')
+        clearTimeout(timeoutId)
+        if (isMounted) {
+          console.error('❌ AuthGuard: Error:', error)
+          setLoading(false)
+          router.push('/login')
+        }
       }
     }
+    
     checkAuth()
+    
+    return () => {
+      isMounted = false
+      clearTimeout(timeoutId)
+    }
   }, [router])
 
   if (loading) {
