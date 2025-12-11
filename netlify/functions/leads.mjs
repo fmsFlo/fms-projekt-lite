@@ -197,8 +197,10 @@ export async function handler(event, context) {
       // INSERT new lead
       // Prisma table: "Lead" (PascalCase)
       // Do NOT set phaseId - leave it NULL
+      // id wird automatisch von Prisma generiert (cuid())
       const result = await sql`
         INSERT INTO "Lead" (
+          id,
           email,
           "firstName",
           "lastName",
@@ -211,6 +213,7 @@ export async function handler(event, context) {
           "updatedAt"
         ) 
         VALUES (
+          gen_random_uuid()::text,
           ${email},
           ${firstName || null},
           ${lastName || null},
