@@ -95,7 +95,7 @@ model CompanySettings {
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
   
-  companyId                 String   @unique
+  companyId                 String?  @unique
   emailNotifications        Boolean  @default(true)
   smsNotifications          Boolean  @default(false)
   currency                  String   @default("EUR")
@@ -153,7 +153,7 @@ model CompanySettings {
   sevdeskApiToken           String?
   sevdeskApiUrl             String? // Optional, Standard: https://my.sevdesk.de/api/v1
   
-  company                   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company                   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   
   @@index([companyId])
   @@schema("public")
