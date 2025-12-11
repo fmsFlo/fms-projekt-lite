@@ -16,16 +16,20 @@ export default function Navigation() {
     async function getUser() {
       try {
         const response = await fetch('/api/user', {
-          credentials: 'include'
+          credentials: 'include',
+          cache: 'no-store'
         })
         if (!response.ok) {
+          console.error('❌ Navigation: /api/user returned', response.status)
           setLoading(false)
           return
         }
         const data = await response.json()
+        console.log('✅ Navigation: User loaded', data.role, 'isActive:', data.isActive)
         setUser(data)
         setLoading(false)
       } catch (error) {
+        console.error('❌ Navigation: Error fetching user:', error)
         setLoading(false)
       }
     }
