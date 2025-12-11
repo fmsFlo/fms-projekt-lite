@@ -66,13 +66,19 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
   // Für Netlify: Verwende puppeteer-core mit @sparticuz/chromium
   // Für lokale Entwicklung: Normales puppeteer
   let browser
-  if (process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  const isNetlify = process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME
+  
+  if (isNetlify) {
     // Netlify/Lambda Umgebung - verwende @sparticuz/chromium
     try {
-      const chromium = require('@sparticuz/chromium')
-      const puppeteerCore = require('puppeteer-core')
+      // Dynamische Imports für Netlify (ES Modules)
+      const chromium = await import('@sparticuz/chromium')
+      const puppeteerCore = await import('puppeteer-core')
       
-      browser = await puppeteerCore.launch({
+      // Chromium für Netlify konfigurieren
+      chromium.setGraphicsMode(false)
+      
+      browser = await puppeteerCore.default.launch({
         args: chromium.args,
         defaultViewport: chromium.defaultViewport,
         executablePath: await chromium.executablePath(),
@@ -80,7 +86,7 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
       })
     } catch (error: any) {
       console.error('❌ Fehler beim Laden von @sparticuz/chromium:', error.message)
-      throw new Error('PDF-Generierung ist in dieser Umgebung nicht verfügbar. Bitte verwenden Sie eine lokale Umgebung oder konfigurieren Sie @sparticuz/chromium.')
+      throw new Error(`PDF-Generierung fehlgeschlagen: ${error.message}. Bitte prüfen Sie die Netlify-Konfiguration.`)
     }
   } else {
     // Lokale Entwicklung - normales puppeteer
