@@ -34,8 +34,23 @@ export default function Navigation() {
     getUser()
   }, [])
 
-  if (!user || loading) {
-    return null // Nichts anzeigen während loading
+  // Zeige immer etwas an, auch wenn User nicht geladen ist
+  if (loading) {
+    return <div className="text-sm text-[var(--color-text-secondary)]">Lädt...</div>
+  }
+  
+  // Wenn kein User, zeige nur Login-Link
+  if (!user) {
+    return (
+      <nav className="flex items-center gap-4 text-sm">
+        <Link 
+          href="/login" 
+          className="text-[var(--color-text-primary)] hover:text-[var(--color-primary)] transition-colors"
+        >
+          Anmelden
+        </Link>
+      </nav>
+    )
   }
 
   const userRole = user.role === 'admin' ? 'admin' : 'advisor'

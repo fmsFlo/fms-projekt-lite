@@ -34,8 +34,8 @@ export async function middleware(request: NextRequest) {
     }
   }
   
-  // Allow access to login/reset-password pages (without redirect)
-  if (path === '/login' || path === '/reset-password') {
+  // Allow access to login/reset-password pages and root (without redirect)
+  if (path === '/login' || path === '/reset-password' || path === '/') {
     return NextResponse.next()
   }
   
