@@ -1,15 +1,10 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth } from '@/lib/supabase-server'
-import { redirect } from 'next/navigation'
 import TemplatesList from './templates-list'
 
 export const dynamic = 'force-dynamic'
 
 export default async function TemplatesPage() {
-  const auth = await requireAuth()
-  if (!auth) {
-    redirect('/login')
-  }
+  // Auth wird von Middleware geprüft
 
   const templates = await prisma.contractTemplate.findMany({
     orderBy: [{ category: 'asc' }, { name: 'asc' }]

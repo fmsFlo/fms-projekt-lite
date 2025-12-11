@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, FormEvent, useEffect, Suspense } from 'react'
-import { createClient } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
@@ -15,22 +14,15 @@ function LoginContent() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
 
+  // Entfernt: Middleware übernimmt die Prüfung und Weiterleitung
+  // Kein Session-Check mehr auf der Login-Seite, um Endlosschleifen zu vermeiden
   useEffect(() => {
-    async function checkSession() {
-      const { data: { session } } = await supabase.auth.getSession();
+    setCheckingSession(false);
+  }, [])
 
-      if (session) {
-        router.push('/dashboard');
-        router.refresh();
-      } else {
-        setCheckingSession(false);
-      }
-    }
-
-    checkSession();
-
+  // Prüfe URL-Parameter für Fehler
+  useEffect(() => {
     const errorParam = searchParams.get('error');
     if (errorParam === 'no_profile') {
       setError('Kein Profil gefunden. Bitte wenden Sie sich an den Administrator.');
@@ -39,23 +31,46 @@ function LoginContent() {
       setError('Ihr Account wurde gesperrt. Bitte wenden Sie sich an den Administrator.');
       setCheckingSession(false);
     }
-  }, [searchParams, router, supabase]);
+  }, [searchParams]);
 
   async function handleLogin(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      console.log('🔍 Login startet...', { email, passwordLength: password.length });
+      
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (error) {
-      setError(error.message);
+      console.log('🔍 Login Response Status:', response.status);
+      console.log('🔍 Login Response OK:', response.ok);
+
+      if (response.ok) {
+        // Success - redirect NOW!
+        console.log('✅ Login erfolgreich, weiterleiten zu /dashboard');
+        
+        // Use window.location.href instead of router.push to force full page reload
+        window.location.href = '/dashboard';
+        return; // Verhindere weitere Ausführung
+      } else {
+        // Error - show message
+        const data = await response.json().catch(() => ({ message: 'Anmeldung fehlgeschlagen' }));
+        console.error('❌ Login fehlgeschlagen:', data);
+        setError(data.message || data.error || 'Anmeldung fehlgeschlagen');
+        setLoading(false);
+      }
+    } catch (err: any) {
+      console.error('❌ Login error:', err);
+      setError(err.message || 'Netzwerkfehler. Bitte versuchen Sie es erneut.');
       setLoading(false);
-    } else {
-      window.location.href = '/dashboard';
     }
   }
 

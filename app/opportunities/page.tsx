@@ -1,15 +1,10 @@
 import { prisma } from '@/lib/prisma'
 import OpportunitiesList from './opportunities-list'
-import { requireAuth } from '@/lib/supabase-server'
-import { redirect } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
 export default async function OpportunitiesPage() {
-  const auth = await requireAuth()
-  if (!auth) {
-    redirect('/login')
-  }
+  // Auth wird von middleware.ts übernommen
   const opportunities = await prisma.opportunity.findMany({
     include: {
       phase: true,

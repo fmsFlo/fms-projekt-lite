@@ -6,34 +6,77 @@ import { NextRequest } from 'next/server'
 
 const SESSION_COOKIE = 'session'
 
+// Hilfsfunktion zum Dekodieren des Session-Cookies
+function decodeSessionCookie(cookieValue: string | null | undefined): string | null {
+  if (!cookieValue) return null
+  
+  // Neues Format: role|userId (Pipe als Trennzeichen)
+  if (cookieValue.includes('|')) {
+    return cookieValue
+  }
+  
+  // Altes Format: Base64-kodiert
+  if (cookieValue.length > 10 && !cookieValue.includes(':') && !cookieValue.includes('%')) {
+    try {
+      // Versuche Base64 zu dekodieren
+      return Buffer.from(cookieValue, 'base64').toString('utf-8').replace(':', '|')
+    } catch {
+      // Nicht Base64, verwende Original
+    }
+  }
+  
+  // Altes Format: role:userId (URL-encoded oder nicht)
+  if (cookieValue.includes('%3A')) {
+    try {
+      return decodeURIComponent(cookieValue).replace(':', '|')
+    } catch {
+      return cookieValue.replace(/%3A/g, '|')
+    }
+  }
+  
+  // Altes Format: role:userId (nicht URL-encoded)
+  if (cookieValue.includes(':')) {
+    return cookieValue.replace(':', '|')
+  }
+  
+  return cookieValue
+}
+
 // Hilfsfunktion zum Lesen von Cookies aus Request (für API-Routen)
 export function getSessionFromRequest(req?: NextRequest | Request): string | null {
+  let cookieValue: string | null = null
+  
   if (req) {
     // Prüfe ob es ein NextRequest ist (hat cookies.get)
     if ('cookies' in req && typeof req.cookies.get === 'function') {
-      return (req as NextRequest).cookies.get(SESSION_COOKIE)?.value || null
-    }
-    // Fallback: Versuche aus Headers zu lesen
-    try {
-      const cookieHeader = (req as Request).headers.get('cookie')
-      if (cookieHeader) {
-        const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
-          const [key, value] = cookie.trim().split('=')
-          acc[key] = value
-          return acc
-        }, {} as Record<string, string>)
-        return cookies[SESSION_COOKIE] || null
+      cookieValue = (req as NextRequest).cookies.get(SESSION_COOKIE)?.value || null
+    } else {
+      // Fallback: Versuche aus Headers zu lesen
+      try {
+        const cookieHeader = (req as Request).headers.get('cookie')
+        if (cookieHeader) {
+          const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
+            const [key, value] = cookie.trim().split('=')
+            acc[key] = value
+            return acc
+          }, {} as Record<string, string>)
+          cookieValue = cookies[SESSION_COOKIE] || null
+        }
+      } catch {
+        // Ignoriere Fehler
       }
+    }
+  } else {
+    // Fallback für Server-Komponenten
+    try {
+      cookieValue = cookies().get(SESSION_COOKIE)?.value || null
     } catch {
-      // Ignoriere Fehler
+      return null
     }
   }
-  // Fallback für Server-Komponenten
-  try {
-    return cookies().get(SESSION_COOKIE)?.value || null
-  } catch {
-    return null
-  }
+  
+  // Dekodiere Base64 Cookie
+  return decodeSessionCookie(cookieValue)
 }
 
 export type UserRole = 'admin' | 'advisor'
@@ -56,12 +99,14 @@ export async function verifyCredentials(email: string, password: string): Promis
     }
     
     console.log('🔍 Suche User in Datenbank...')
-    const user = await prisma.user.findFirst({
+    // Suche User - Email-Vergleich case-insensitive
+    const allUsers = await prisma.user.findMany({
       where: { 
-        email: inEmail,
         isActive: true 
       }
     })
+    
+    const user = allUsers.find(u => u.email.toLowerCase() === inEmail.toLowerCase())
     
     if (!user) {
       console.log('❌ User nicht gefunden oder inaktiv:', inEmail)
@@ -111,12 +156,22 @@ export async function verifyCredentials(email: string, password: string): Promis
 
 export function setSessionCookie(role: UserRole, userId: string): void {
   const sevenDays = 7 * 24 * 60 * 60
-  cookies().set('session', `${role}:${userId}`, {
-    httpOnly: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: sevenDays
-  })
+  // Verwende Pipe (|) als Trennzeichen, da es nicht URL-encoded wird
+  const cookieValue = `${role}|${userId}`
+  try {
+    cookies().set('session', cookieValue, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // true für HTTPS in Production
+      sameSite: 'lax',
+      path: '/',
+      maxAge: sevenDays
+    })
+    console.log('🔍 setSessionCookie called:', cookieValue)
+  } catch (error: any) {
+    console.error('❌ setSessionCookie error:', error.message)
+    // In API Routes funktioniert cookies() nicht, daher ignorieren wir den Fehler
+    // Das Cookie wird stattdessen über response.cookies.set() gesetzt
+  }
 }
 
 export function clearSessionCookie(): void {
@@ -129,14 +184,15 @@ export function clearSessionCookie(): void {
 }
 
 export function isAuthenticated(): boolean {
-  const c = cookies().get(SESSION_COOKIE)?.value
-  return !!c && c.includes(':')
+  const c = getSessionFromRequest()
+  return !!c && (c.includes('|') || c.includes(':'))
 }
 
 export function getUserRole(req?: NextRequest | Request): UserRole | null {
   const c = getSessionFromRequest(req)
-  if (!c || !c.includes(':')) return null
-  const role = c.split(':')[0]
+  if (!c || (!c.includes('|') && !c.includes(':'))) return null
+  const separator = c.includes('|') ? '|' : ':'
+  const role = c.split(separator)[0]
   if (role === 'admin' || role === 'advisor') {
     return role as UserRole
   }
@@ -145,8 +201,9 @@ export function getUserRole(req?: NextRequest | Request): UserRole | null {
 
 export function getUserId(req?: NextRequest | Request): string | null {
   const c = getSessionFromRequest(req)
-  if (!c || !c.includes(':')) return null
-  return c.split(':')[1] || null
+  if (!c || (!c.includes('|') && !c.includes(':'))) return null
+  const separator = c.includes('|') ? '|' : ':'
+  return c.split(separator)[1] || null
 }
 
 export function isAdmin(req?: NextRequest | Request): boolean {

@@ -5,36 +5,38 @@ export const runtime = "nodejs";
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
 import AuthGuard from '@/components/AuthGuard'
 
 export default function DashboardPage() {
   const router = useRouter()
   const [userRole, setUserRole] = useState<'admin' | 'advisor' | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
 
   useEffect(() => {
     async function getUserRole() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
+      try {
+        const response = await fetch('/api/user', {
+          credentials: 'include',
+          cache: 'no-store'
+        })
+        if (!response.ok) {
+          console.error('❌ Dashboard: /api/user returned', response.status)
+          router.push('/login')
+          return
+        }
+        const user = await response.json()
+        console.log('✅ Dashboard: User loaded', user.role)
+        setUserRole(user.role === 'admin' ? 'admin' : 'advisor')
+        setLoading(false)
+      } catch (error) {
+        console.error('❌ Dashboard: Error loading user role:', error)
         router.push('/login')
-        return
       }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (profile) {
-        setUserRole(profile.role === 'admin' ? 'admin' : 'advisor')
-      }
-      setLoading(false)
     }
-    getUserRole()
-  }, [router, supabase])
+    // Warte kurz, damit AuthGuard zuerst prüft
+    const timer = setTimeout(getUserRole, 100)
+    return () => clearTimeout(timer)
+  }, [router])
 
   return (
     <AuthGuard>

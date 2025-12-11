@@ -2,7 +2,6 @@
 export const runtime = "nodejs";
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import LogoutButton from './logout-button'
@@ -10,49 +9,36 @@ import ThemeToggle from '@/components/settings/ThemeToggle'
 
 export default function Navigation() {
   const [user, setUser] = useState<any>(null)
-  const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
     async function getUser() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
+      try {
+        const response = await fetch('/api/user', {
+          credentials: 'include'
+        })
+        if (!response.ok) {
+          setLoading(false)
+          return
+        }
+        const data = await response.json()
+        setUser(data)
         setLoading(false)
-        return
+      } catch (error) {
+        setLoading(false)
       }
-      setUser(user)
-      
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-      
-      setProfile(profile)
-      setLoading(false)
     }
     
+    // Nur EINMAL beim Mount aufrufen - KEIN Interval mehr!
     getUser()
+  }, [])
 
-    // Höre auf Auth-Änderungen (z.B. nach Login/Logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-        getUser()
-      }
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [router, supabase])
-
-  if (!user || !profile || loading) {
+  if (!user || loading) {
     return null // Nichts anzeigen während loading
   }
 
-  const userRole = profile.role === 'admin' ? 'admin' : 'advisor'
+  const userRole = user.role === 'admin' ? 'admin' : 'advisor'
 
   return (
     <nav className="flex items-center gap-4 text-sm">

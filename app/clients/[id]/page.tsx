@@ -5,8 +5,7 @@ import EditClientForm from './edit-form'
 import RetirementConceptButton from './retirement-concept-button'
 import ContractsTable from './contracts-table'
 import { SERVICE_CONTACT_SEED } from '@/lib/service/serviceContactSeeds'
-import { requireAuth } from '@/lib/supabase-server'
-import { redirect } from 'next/navigation'
+// Auth wird von middleware.ts übernommen
 
 const SERVICE_TEMPLATES = [
   {
@@ -213,10 +212,7 @@ async function ensureServiceContacts() {
 interface Params { params: { id: string } }
 
 export default async function ClientDetailPage({ params }: Params) {
-  const auth = await requireAuth()
-  if (!auth) {
-    redirect('/login')
-  }
+  // Auth wird von middleware.ts übernommen
 
   const client = await prisma.client.findUnique({ where: { id: params.id } })
   if (!client) return (

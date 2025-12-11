@@ -1,18 +1,21 @@
 'use client'
 export const runtime = "nodejs";
 
-
-import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 export default function LogoutButton() {
   const router = useRouter()
-  const supabase = createClient()
 
   async function handleLogout() {
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      })
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+    window.location.href = '/login'
   }
 
   return (

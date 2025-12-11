@@ -1,16 +1,10 @@
 import { prisma } from '@/lib/prisma'
 import ClientsClient from './table'
-import { requireAuth } from '@/lib/supabase-server'
-import { redirect } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ClientsPage() {
-  const auth = await requireAuth()
-  if (!auth) {
-    redirect('/login')
-  }
-
+  // Auth wird von middleware.ts übernommen
   const clients = await prisma.client.findMany({ orderBy: { createdAt: 'desc' } })
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">

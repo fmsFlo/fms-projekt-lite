@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { isAdmin } from '@/lib/auth'
+import type { NextRequest } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -51,28 +52,11 @@ const settingsSchema = z.object({
   closeApiKey: z.string().nullable().optional().transform(v => (v && v.trim()) || undefined)
 })
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    // Auth-Prüfung - optional, da Middleware bereits prüft
-    try {
-      const supabase = await createServerSupabaseClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-
-        if (!profile || profile.role !== 'admin') {
-          return NextResponse.json({ message: 'Nur für Administratoren' }, { status: 403 })
-        }
-      }
-    } catch (authError) {
-      // Wenn Supabase nicht konfiguriert ist, überspringe Auth-Prüfung
-      // (für Migration/Backwards Compatibility)
-      console.warn('Auth check skipped:', authError)
+    // Auth-Prüfung - nur Admin
+    if (!isAdmin(req)) {
+      return NextResponse.json({ message: 'Nur für Administratoren' }, { status: 403 })
     }
 
     let settings = await prisma.companySettings.findFirst()
@@ -86,23 +70,10 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    // Auth-Prüfung
-    const supabase = await createServerSupabaseClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return NextResponse.json({ message: 'Nicht autorisiert' }, { status: 401 })
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile || profile.role !== 'admin') {
+    // Auth-Prüfung - nur Admin
+    if (!isAdmin(req)) {
       return NextResponse.json({ message: 'Nur für Administratoren' }, { status: 403 })
     }
 

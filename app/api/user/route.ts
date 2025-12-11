@@ -1,60 +1,81 @@
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { getUserRole, getUserId } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import type { NextRequest } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    // Prüfe Session direkt aus Cookie
-    const session = req.cookies.get('session')?.value
+    console.log('🔍 /api/user: Request received')
+    const sessionCookie = cookies().get('session')
+    console.log('🔍 /api/user: Session cookie:', sessionCookie ? 'present' : 'missing', sessionCookie?.value?.substring(0, 30))
     
-    if (!session || !session.includes(':')) {
-      return NextResponse.json({ role: null, visibleCategories: null })
+    if (!sessionCookie) {
+      console.log('❌ /api/user: No session cookie')
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
     
-    const [role, userId] = session.split(':')
+    const [role, userId] = sessionCookie.value.split(':')
+    console.log('🔍 /api/user: Parsed role:', role, 'userId:', userId)
+    
+    if (!role || !userId) {
+      console.log('❌ /api/user: Invalid session format')
+      return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
+    }
+    
+    console.log('🔍 /api/user: Querying database for user:', userId)
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isActive: true,
+        visibleCategories: true
+      }
+    })
+    
+    console.log('🔍 /api/user: User found:', user ? 'yes' : 'no', user?.isActive ? 'active' : 'inactive')
+    
+    if (!user || !user.isActive) {
+      console.log('❌ /api/user: User not found or inactive')
+      return NextResponse.json({ error: 'User not found' }, { status: 401 })
+    }
+    
+    if (user.role !== role) {
+      console.log('❌ /api/user: Role mismatch', 'expected:', user.role, 'got:', role)
+      return NextResponse.json({ error: 'Role mismatch' }, { status: 401 })
+    }
     
     let visibleCategories: string[] | null = null
     
-    if (userId) {
+    // Admin sieht alle Kategorien (null = alle)
+    if (user.role === 'admin') {
+      visibleCategories = null
+    } else if (user.visibleCategories) {
       try {
-        const user = await prisma.user.findUnique({
-          where: { id: userId },
-          select: { visibleCategories: true, role: true }
-        })
-        
-        if (user) {
-          // Admin sieht alle Kategorien (null = alle)
-          if (user.role === 'admin') {
-            visibleCategories = null
-          } else if (user.visibleCategories) {
-            // Parse JSON-Array
-            try {
-              visibleCategories = JSON.parse(user.visibleCategories)
-            } catch {
-              visibleCategories = []
-            }
-          } else {
-            // Berater ohne visibleCategories sehen keine Honorarverträge
-            visibleCategories = []
-          }
-        }
-      } catch (dbError: any) {
-        console.error('❌ DB Error in /api/user:', dbError.message)
-        // Fallback: Verwende Rolle aus Session
+        visibleCategories = JSON.parse(user.visibleCategories)
+      } catch {
+        visibleCategories = []
       }
+    } else {
+      visibleCategories = []
     }
     
-    // Verwende Rolle aus Session, falls DB-Abfrage fehlschlägt
-    const finalRole = (role === 'admin' || role === 'advisor') ? role : null
-    
-    return NextResponse.json({ role: finalRole, visibleCategories })
-  } catch (error: any) {
-    console.error('❌ User GET Error:', error)
-    return NextResponse.json({ role: null, visibleCategories: null })
+    console.log('✅ /api/user: Returning user data for', user.email)
+    return NextResponse.json({ 
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      isActive: user.isActive, // WICHTIG: isActive muss zurückgegeben werden!
+      visibleCategories
+    })
+  } catch (error) {
+    console.error('❌ /api/user: Error:', error)
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
 

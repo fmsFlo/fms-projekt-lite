@@ -3,7 +3,6 @@ export const runtime = "nodejs";
 
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import UsersSection from './users-section'
 import BrandColorPicker from '@/components/settings/BrandColorPicker'
@@ -11,7 +10,6 @@ import AuthGuard from '@/components/AuthGuard'
 
 export default function SettingsPage() {
   const router = useRouter()
-  const supabase = createClient()
   const [authLoading, setAuthLoading] = useState(true)
   const [authorized, setAuthorized] = useState(false)
   const [form, setForm] = useState({
@@ -35,27 +33,21 @@ export default function SettingsPage() {
   useEffect(() => {
     async function checkAuth() {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        
-        if (!user) {
+        const response = await fetch('/api/user', {
+          credentials: 'include',
+          cache: 'no-store'
+        })
+        if (!response.ok) {
           router.push('/login')
           setAuthLoading(false)
           return
         }
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-
-        if (!profile || profile.role === 'blocked') {
-          await supabase.auth.signOut()
+        const user = await response.json()
+        if (!user || !user.isActive || user.role !== 'admin') {
           router.push('/login')
           setAuthLoading(false)
           return
         }
-
         setAuthorized(true)
         setAuthLoading(false)
         // Lade Settings sofort nach erfolgreicher Auth
@@ -66,7 +58,7 @@ export default function SettingsPage() {
       }
     }
     checkAuth()
-  }, [router, supabase])
+  }, [router])
 
   async function loadSettings() {
     setLoading(true)

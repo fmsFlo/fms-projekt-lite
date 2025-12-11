@@ -1,15 +1,10 @@
 import { prisma } from '@/lib/prisma'
 import KanbanBoard from './kanban-board'
-import { requireAuth } from '@/lib/supabase-server'
-import { redirect } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
 export default async function PipelinePage() {
-  const auth = await requireAuth()
-  if (!auth) {
-    redirect('/login')
-  }
+  // Auth wird von middleware.ts übernommen
   // Lade Phasen und Opportunities
   const phases = await prisma.pipelinePhase.findMany({
     where: { isActive: true },

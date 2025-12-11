@@ -3,7 +3,6 @@ export const runtime = "nodejs";
 
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
 import AuthGuard from '@/components/AuthGuard'
 import KeyMetrics from '@/components/dashboard/KeyMetrics'
 import CallStatsChart from '@/components/dashboard/CallStatsChart'
@@ -14,7 +13,6 @@ export default function TelefonieDashboardPage() {
   const router = useRouter()
   const [userRole, setUserRole] = useState<'admin' | 'advisor' | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
   const [users, setUsers] = useState<any[]>([])
   const [selectedUser, setSelectedUser] = useState('')
   const [startDate, setStartDate] = useState('')
@@ -32,20 +30,17 @@ export default function TelefonieDashboardPage() {
   useEffect(() => {
     async function checkAuth() {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
+        const response = await fetch('/api/user', {
+          credentials: 'include',
+          cache: 'no-store'
+        })
+        if (!response.ok) {
           router.push('/login')
           setLoading(false)
           return
         }
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-
-        if (profile && profile.role === 'admin') {
+        const user = await response.json()
+        if (user.role === 'admin') {
           setUserRole('admin')
           loadUsers()
           // Standard: letzte 7 Tage
@@ -67,7 +62,7 @@ export default function TelefonieDashboardPage() {
     }
     
     checkAuth()
-  }, [router, supabase])
+  }, [router])
 
   useEffect(() => {
     if (startDate && endDate) {

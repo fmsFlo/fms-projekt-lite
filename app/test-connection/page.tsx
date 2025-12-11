@@ -3,22 +3,24 @@ export const runtime = "nodejs";
 
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
 
 export default function TestConnection() {
   const [status, setStatus] = useState('Testing connection...')
   const [details, setDetails] = useState<any>(null)
-  const supabase = createClient()
 
   useEffect(() => {
     async function test() {
       try {
-        const { data, error } = await supabase.from('profiles').select('count').limit(1)
+        const response = await fetch('/api/user', {
+          credentials: 'include',
+          cache: 'no-store'
+        })
         
-        if (error) throw error
+        if (!response.ok) throw new Error('Not authenticated')
         
-        setStatus('✅ Supabase Connected Successfully!')
-        setDetails({ message: 'Database is accessible', timestamp: new Date().toISOString() })
+        const user = await response.json()
+        setStatus('✅ Connection Successful!')
+        setDetails({ message: 'Database is accessible', user: user.email, timestamp: new Date().toISOString() })
       } catch (error: any) {
         setStatus('❌ Connection Error')
         setDetails({ error: error.message })
@@ -30,7 +32,7 @@ export default function TestConnection() {
   return (
     <div className="min-h-screen p-8" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6" style={{ color: 'var(--color-text-primary)' }}>Supabase Connection Test</h1>
+        <h1 className="text-3xl font-bold mb-6" style={{ color: 'var(--color-text-primary)' }}>Connection Test</h1>
         <div className="p-6 rounded-lg shadow" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
           <p className="text-xl mb-4" style={{ color: 'var(--color-text-primary)' }}>{status}</p>
           {details && (
@@ -43,7 +45,7 @@ export default function TestConnection() {
           <p>Next steps:</p>
           <ol className="list-decimal ml-5 mt-2 space-y-1">
             <li>Check your .env.local file has correct values</li>
-            <li>Create a user in Supabase Dashboard</li>
+            <li>Ensure DATABASE_URL is set correctly</li>
             <li>Try logging in at /login</li>
           </ol>
         </div>

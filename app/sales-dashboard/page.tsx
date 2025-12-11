@@ -4,45 +4,31 @@ export const runtime = "nodejs";
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
 import AuthGuard from '@/components/AuthGuard'
 
 export default function SalesDashboardPage() {
   const router = useRouter()
   const [userRole, setUserRole] = useState<'admin' | 'advisor' | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
-
   useEffect(() => {
     async function getUserRole() {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
+        const response = await fetch('/api/user', {
+          credentials: 'include',
+          cache: 'no-store'
+        })
+        if (!response.ok) {
           router.push('/login')
           setLoading(false)
           return
         }
-
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-
-        if (profileError) {
-          console.error('Profile error:', profileError)
+        const user = await response.json()
+        if (user.role !== 'admin') {
+          router.push('/dashboard')
           setLoading(false)
           return
         }
-
-        if (profile) {
-          if (profile.role !== 'admin') {
-            router.push('/dashboard')
-            setLoading(false)
-            return
-          }
-          setUserRole('admin')
-        }
+        setUserRole('admin')
         setLoading(false)
       } catch (error) {
         console.error('Error loading user role:', error)
@@ -51,18 +37,8 @@ export default function SalesDashboardPage() {
     }
     
     getUserRole()
-
-    // Höre auf Auth-Änderungen
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-        getUserRole()
-      }
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [router, supabase])
+    // Entfernt: setInterval für Session-Prüfung (verhindert Endlosschleifen)
+  }, [router])
 
   return (
     <AuthGuard>

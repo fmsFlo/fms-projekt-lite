@@ -4,14 +4,12 @@ export const runtime = "nodejs";
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
 import AuthGuard from '@/components/AuthGuard'
 
 export default function AnalyseDashboardPage() {
   const router = useRouter()
   const [userRole, setUserRole] = useState<'admin' | 'advisor' | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
   const [timeRange, setTimeRange] = useState(30) // 7, 14, 30, 90 Tage
   const [dataSource, setDataSource] = useState('merged') // 'custom-activities' | 'calendly' | 'merged'
   const [sortConfig, setSortConfig] = useState<{ key: string | null, direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' })
@@ -42,20 +40,17 @@ export default function AnalyseDashboardPage() {
   useEffect(() => {
     async function checkAuth() {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
+        const response = await fetch('/api/user', {
+          credentials: 'include',
+          cache: 'no-store'
+        })
+        if (!response.ok) {
           router.push('/login')
           setLoading(false)
           return
         }
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-
-        if (profile && profile.role === 'admin') {
+        const user = await response.json()
+        if (user.role === 'admin') {
           setUserRole('admin')
         } else {
           router.push('/dashboard')
@@ -70,7 +65,7 @@ export default function AnalyseDashboardPage() {
     }
     
     checkAuth()
-  }, [router, supabase])
+  }, [router])
 
   // Berechne Datum-Range basierend auf timeRange oder Custom-Dates
   const dateRange = useMemo(() => {

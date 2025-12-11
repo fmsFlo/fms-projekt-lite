@@ -3,7 +3,6 @@ export const runtime = "nodejs";
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
 import AuthGuard from '@/components/AuthGuard'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts'
 
@@ -11,7 +10,6 @@ export default function CalendlyDashboardPage() {
   const router = useRouter()
   const [userRole, setUserRole] = useState<'admin' | 'advisor' | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
   const [allEvents, setAllEvents] = useState<any[]>([])
   const [filteredEvents, setFilteredEvents] = useState<any[]>([])
   const [showAllEvents, setShowAllEvents] = useState(false)
@@ -39,20 +37,17 @@ export default function CalendlyDashboardPage() {
   useEffect(() => {
     async function checkAuth() {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
+        const response = await fetch('/api/user', {
+          credentials: 'include',
+          cache: 'no-store'
+        })
+        if (!response.ok) {
           router.push('/login')
           setLoading(false)
           return
         }
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-
-        if (profile && profile.role === 'admin') {
+        const user = await response.json()
+        if (user.role === 'admin') {
           setUserRole('admin')
           loadAllEvents()
         } else {
@@ -68,7 +63,7 @@ export default function CalendlyDashboardPage() {
     }
     
     checkAuth()
-  }, [router, supabase])
+  }, [router])
 
   useEffect(() => {
     applyFilters()

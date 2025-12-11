@@ -3,7 +3,6 @@ export const runtime = "nodejs";
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
 
 interface Template {
   id: string
@@ -24,25 +23,24 @@ export default function TemplatesList({ initialTemplates }: TemplatesListProps) 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
     async function getUserRole() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (profile) {
-        setUserRole(profile.role === 'admin' ? 'admin' : 'advisor')
+      try {
+        const response = await fetch('/api/user')
+        if (!response.ok) {
+          router.push('/login')
+          return
+        }
+        const user = await response.json()
+        if (!user) return
+        setUserRole(user.role === 'admin' ? 'admin' : 'advisor')
+      } catch (error) {
+        console.error('Error getting user role:', error)
       }
     }
     getUserRole()
-  }, [supabase])
+  }, [router])
 
   const refreshTemplates = async () => {
     setLoading(true)

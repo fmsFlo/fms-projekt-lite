@@ -1,17 +1,12 @@
 import { prisma } from '@/lib/prisma'
 import RetirementConceptForm from './retirement-concept-form'
-import { requireAuth } from '@/lib/supabase-server'
-import { redirect } from 'next/navigation'
 
 interface Params {
   params: { id: string; conceptId: string }
 }
 
 export default async function RetirementConceptPage({ params }: Params) {
-  const auth = await requireAuth()
-  if (!auth) {
-    redirect('/login')
-  }
+  // Auth wird von middleware.ts übernommen
   const concept = await prisma.retirementConcept.findUnique({
     where: { id: params.conceptId },
     include: {
