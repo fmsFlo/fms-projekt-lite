@@ -63,9 +63,31 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
     }
   )
 
-  const browser = await puppeteer.launch({
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  })
+  // Für Netlify: Verwende puppeteer-core mit @sparticuz/chromium
+  // Für lokale Entwicklung: Normales puppeteer
+  let browser
+  if (process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    // Netlify/Lambda Umgebung - verwende @sparticuz/chromium
+    try {
+      const chromium = require('@sparticuz/chromium')
+      const puppeteerCore = require('puppeteer-core')
+      
+      browser = await puppeteerCore.launch({
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
+      })
+    } catch (error: any) {
+      console.error('❌ Fehler beim Laden von @sparticuz/chromium:', error.message)
+      throw new Error('PDF-Generierung ist in dieser Umgebung nicht verfügbar. Bitte verwenden Sie eine lokale Umgebung oder konfigurieren Sie @sparticuz/chromium.')
+    }
+  } else {
+    // Lokale Entwicklung - normales puppeteer
+    browser = await puppeteer.launch({
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    })
+  }
   try {
     const page = await browser.newPage()
     await page.setContent(processedHtml, { waitUntil: 'networkidle0' })
