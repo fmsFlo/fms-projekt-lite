@@ -15,6 +15,7 @@ export async function middleware(request: NextRequest) {
       path.startsWith('/api/user') || 
       path.startsWith('/api/make') || 
       path.startsWith('/api/login') ||
+      path.startsWith('/api/reset-password') ||
       path.startsWith('/api/leads/webhook') ||
       path.startsWith('/api/webhook/')) {
     return NextResponse.next()

@@ -148,19 +148,29 @@ function LoginContent() {
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full text-white py-2 px-4 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ backgroundColor: 'var(--color-primary)', borderRadius: 'var(--radius-pill)' }}
-          >
-            {loading ? 'Anmelden...' : 'Anmelden'}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full text-white py-2 px-4 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: 'var(--color-primary)', borderRadius: 'var(--radius-pill)' }}
+              >
+                {loading ? 'Anmelden...' : 'Anmelden'}
+              </button>
+
+              <div className="text-center mt-4">
+                <a 
+                  href="/reset-password"
+                  className="text-sm hover:underline"
+                  style={{ color: 'var(--color-primary)' }}
+                >
+                  Passwort vergessen?
+                </a>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
 
 export default function LoginPage() {
   return (
