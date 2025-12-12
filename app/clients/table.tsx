@@ -23,15 +23,24 @@ export default function ClientsClient({ initialClients }: { initialClients: Clie
   const [makeResults, setMakeResults] = useState<Client[]>([])
   const [loadingMake, setLoadingMake] = useState(false)
   const [loadingImport, setLoadingImport] = useState(false)
+  const { privacyMode, activeClientId, setActiveClientId } = usePrivacy()
+
+  // Filter clients based on privacy mode
+  const displayedClients = useMemo(() => {
+    if (privacyMode && activeClientId) {
+      return clients.filter(c => c.id === activeClientId)
+    }
+    return clients
+  }, [clients, privacyMode, activeClientId])
 
   const filtered = useMemo(() => {
-    if (!clients || clients.length === 0) return []
+    if (!displayedClients || displayedClients.length === 0) return []
     const q = query.toLowerCase()
-    if (!q) return clients
-    return clients.filter(c =>
+    if (!q) return displayedClients
+    return displayedClients.filter(c =>
       [c.firstName, c.lastName, c.email, c.city, c.crmId].some(v => (v || '').toLowerCase().includes(q))
     )
-  }, [query, clients])
+  }, [query, displayedClients])
 
   async function searchMake() {
     setLoadingMake(true)
@@ -155,7 +164,14 @@ export default function ClientsClient({ initialClients }: { initialClients: Clie
                 className="transition-colors"
                 style={{ 
                   backgroundColor: idx % 2 === 0 ? 'var(--color-bg-secondary)' : 'var(--color-bg-tertiary)',
-                  borderTop: idx > 0 ? '1px solid var(--color-border)' : 'none'
+                  borderTop: idx > 0 ? '1px solid var(--color-border)' : 'none',
+                  cursor: privacyMode ? 'pointer' : 'default'
+                }}
+                onClick={() => {
+                  // Set active client when clicking on a row in privacy mode
+                  if (privacyMode) {
+                    setActiveClientId(c.id)
+                  }
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)'
