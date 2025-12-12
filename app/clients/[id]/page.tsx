@@ -1,9 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import ContractCreator from './section-contract'
-import DeleteClientButton from './delete-button'
-import EditClientForm from './edit-form'
-import RetirementConceptButton from './retirement-concept-button'
-import ContractsTable from './contracts-table'
+import ClientDetailsPageClient from './ClientDetailsPageClient'
 import { SERVICE_CONTACT_SEED } from '@/lib/service/serviceContactSeeds'
 // Auth wird von middleware.ts übernommen
 
@@ -249,39 +245,20 @@ export default async function ClientDetailPage({ params }: Params) {
   const advisorName = companySettings?.personalName || ''
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
-      <div className="space-y-6">
-        <EditClientForm client={client} />
-
-        <div className="flex items-center gap-3">
-          <RetirementConceptButton clientId={client.id} />
-          <div className="ml-auto"><DeleteClientButton id={client.id} /></div>
-        </div>
-
-        <ContractCreator 
-          clientId={client.id} 
-          templates={templates}
-          customerName={customerName}
-          customerAddress={fullAddress}
-          customerEmail={client.email || undefined}
-          advisorName={advisorName}
-          customerIban={client.iban || undefined}
-        />
-
-        <section>
-          <h2 className="font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>Bisherige Verträge</h2>
-          <ContractsTable
-            contracts={contracts.map((contract) => ({
-              id: contract.id,
-              createdAt: contract.createdAt.toISOString(),
-              templateSlug: contract.templateSlug,
-              sevdeskInvoiceId: contract.sevdeskInvoiceId || null,
-              sevdeskInvoiceNumber: contract.sevdeskInvoiceNumber || null,
-            }))}
-          />
-        </section>
-      </div>
-    </div>
+    <ClientDetailsPageClient
+      client={client}
+      templates={templates}
+      contracts={contracts.map((contract) => ({
+        id: contract.id,
+        createdAt: contract.createdAt.toISOString(),
+        templateSlug: contract.templateSlug,
+        sevdeskInvoiceId: contract.sevdeskInvoiceId || null,
+        sevdeskInvoiceNumber: contract.sevdeskInvoiceNumber || null,
+      }))}
+      customerName={customerName}
+      customerAddress={fullAddress}
+      advisorName={advisorName}
+    />
   )
 }
 
