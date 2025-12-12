@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import UsersSection from './users-section'
 import BrandColorPicker from '@/components/settings/BrandColorPicker'
 import AuthGuard from '@/components/AuthGuard'
+import { useSettings } from '@/lib/settings-context'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -30,6 +31,7 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [activeTab, setActiveTab] = useState<'kontakt' | 'branding' | 'zahlung' | 'integrationen' | 'design' | 'benutzer'>('kontakt')
+  const { refresh: refreshSettings } = useSettings()
 
   useEffect(() => {
     async function checkAuth() {
@@ -152,6 +154,9 @@ export default function SettingsPage() {
         }
         throw new Error(errorData.message || 'Speichern fehlgeschlagen')
       }
+      
+      // Update settings context to refresh CSS variables
+      await refreshSettings()
       
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
