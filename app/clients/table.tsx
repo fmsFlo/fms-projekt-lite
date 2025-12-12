@@ -117,95 +117,259 @@ export default function ClientsClient({ initialClients }: { initialClients: Clie
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        <input 
-          placeholder="Suche nach Name, E-Mail oder Adresse…" 
-          value={query} 
-          onChange={(e) => setQuery(e.target.value)}
-          className="flex-1 px-4 py-2 rounded-md focus:outline-none focus:ring-2 transition-colors"
-          style={{
-            border: '1px solid var(--color-border)',
-            backgroundColor: 'var(--color-bg-secondary)',
-            color: 'var(--color-text-primary)'
-          }}
-          onFocus={(e) => {
-            e.currentTarget.style.borderColor = 'var(--color-primary)'
-            e.currentTarget.style.boxShadow = '0 0 0 2px rgba(var(--color-primary-rgb, 0, 113, 227), 0.2)'
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.borderColor = 'var(--color-border)'
-            e.currentTarget.style.boxShadow = 'none'
-          }}
-        />
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex-1 relative">
+          <input 
+            placeholder="Suche nach Name, E-Mail oder Adresse…" 
+            value={query} 
+            onChange={(e) => setQuery(e.target.value)}
+            disabled={privacyMode && activeClientId}
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:border-transparent transition-all shadow-sm"
+            style={{
+              backgroundColor: privacyMode && activeClientId ? '#f3f4f6' : 'white',
+              color: 'var(--color-text-primary)',
+              opacity: privacyMode && activeClientId ? 0.6 : 1,
+              cursor: privacyMode && activeClientId ? 'not-allowed' : 'text',
+              focusRingColor: 'var(--color-primary)'
+            }}
+            onFocus={(e) => {
+              if (!privacyMode || !activeClientId) {
+                e.currentTarget.style.borderColor = 'var(--color-primary)'
+                e.currentTarget.style.boxShadow = `0 0 0 3px rgba(var(--color-primary-rgb, 0, 122, 255), 0.1)`
+              }
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = '#d1d5db'
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+          />
+          <svg 
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
         <button 
           onClick={searchMake} 
-          disabled={loadingMake}
-          className="px-4 py-2 rounded-md text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm transition-opacity"
-          style={{ backgroundColor: 'var(--color-primary)' }}
+          disabled={loadingMake || (privacyMode && activeClientId)}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed text-sm whitespace-nowrap"
+          style={{ 
+            backgroundColor: 'var(--color-secondary)',
+            color: 'white'
+          }}
         >
-          {loadingMake ? 'Suche…' : 'Suche via Make'}
+          {loadingMake ? (
+            <>
+              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span>Suche…</span>
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <span className="hidden sm:inline">Suche via Make</span>
+              <span className="sm:hidden">Make</span>
+            </>
+          )}
         </button>
       </div>
 
-      <div className="rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-md)' }}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b" style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>Name</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>E-Mail</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>Adresse</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>Aktionen</th>
-            </tr>
-          </thead>
-          <tbody style={{ borderColor: 'var(--color-border)' }}>
-            {filtered.map((c, idx) => (
-              <tr 
-                key={c.id} 
-                className="transition-colors"
-                style={{ 
-                  backgroundColor: idx % 2 === 0 ? 'var(--color-bg-secondary)' : 'var(--color-bg-tertiary)',
-                  borderTop: idx > 0 ? '1px solid var(--color-border)' : 'none',
-                  cursor: privacyMode ? 'pointer' : 'default'
-                }}
+      {privacyMode && activeClientId && (
+        <div className="mb-4 p-3 rounded-lg border" style={{ 
+          backgroundColor: 'rgba(var(--color-primary-rgb, 0, 122, 255), 0.1)', 
+          borderColor: 'rgba(var(--color-primary-rgb, 0, 122, 255), 0.3)',
+          color: 'var(--color-primary)'
+        }}>
+          <strong>🔒 Datenschutz-Modus aktiv:</strong> Es wird nur der ausgewählte Client angezeigt.
+        </div>
+      )}
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Name
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  E-Mail
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Adresse
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Aktionen
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filtered.map((c) => {
+                const initials = `${c.firstName?.[0] || ''}${c.lastName?.[0] || ''}`.toUpperCase()
+                const fullName = `${c.firstName} ${c.lastName}`.trim()
+                const address = [c.street, c.houseNumber, c.zip, c.city].filter(Boolean).join(', ') || '-'
+                
+                return (
+                  <tr 
+                    key={c.id} 
+                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => {
+                      if (privacyMode) {
+                        setActiveClientId(c.id)
+                      } else {
+                        window.location.href = `/clients/${c.id}`
+                      }
+                    }}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div 
+                          className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-sm font-medium"
+                          style={{ 
+                            backgroundColor: 'rgba(var(--color-primary-rgb, 0, 122, 255), 0.1)',
+                            color: 'var(--color-primary)'
+                          }}
+                        >
+                          {initials}
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {fullName}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900 break-all">{c.email || '-'}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900">{address}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <a 
+                        href={`/clients/${c.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (privacyMode) {
+                            setActiveClientId(c.id)
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 text-sm font-medium transition-colors"
+                        style={{ color: 'var(--color-secondary)' }}
+                      >
+                        Details
+                        <span>→</span>
+                      </a>
+                    </td>
+                  </tr>
+                )
+              })}
+              {filtered.length === 0 && (
+                <tr>
+                  <td className="px-6 py-12 text-center" colSpan={4}>
+                    <div className="flex flex-col items-center justify-center">
+                      <svg className="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      <p className="text-sm font-medium text-gray-900 mb-1">Keine Kunden gefunden</p>
+                      <p className="text-xs text-gray-500">
+                        {query ? 'Versuche eine andere Suche' : 'Erstelle deinen ersten Kunden'}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {filtered.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+            <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            <p className="text-sm font-medium text-gray-900 mb-1">Keine Kunden gefunden</p>
+            <p className="text-xs text-gray-500">
+              {query ? 'Versuche eine andere Suche' : 'Erstelle deinen ersten Kunden'}
+            </p>
+          </div>
+        ) : (
+          filtered.map((c) => {
+            const initials = `${c.firstName?.[0] || ''}${c.lastName?.[0] || ''}`.toUpperCase()
+            const fullName = `${c.firstName} ${c.lastName}`.trim()
+            const address = [c.street, c.houseNumber, c.zip, c.city].filter(Boolean).join(', ') || 'Keine Adresse'
+            
+            return (
+              <div
+                key={c.id}
+                className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow"
                 onClick={() => {
-                  // Set active client when clicking on a row in privacy mode
                   if (privacyMode) {
                     setActiveClientId(c.id)
+                  } else {
+                    window.location.href = `/clients/${c.id}`
                   }
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = idx % 2 === 0 ? 'var(--color-bg-secondary)' : 'var(--color-bg-tertiary)'
-                }}
               >
-                <td className="px-4 py-3 font-medium" style={{ color: 'var(--color-text-primary)' }}>{c.firstName} {c.lastName}</td>
-                <td className="px-4 py-3" style={{ color: 'var(--color-text-secondary)' }}>{c.email || '-'}</td>
-                <td className="px-4 py-3" style={{ color: 'var(--color-text-secondary)' }}>{c.street} {c.houseNumber}, {c.zip} {c.city}</td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <a 
-                      className="px-3 py-1.5 text-sm rounded-md text-white hover:opacity-90 transition-opacity font-medium" 
-                      href={`/clients/${c.id}`}
-                      style={{ backgroundColor: 'var(--color-primary)' }}
-                    >
-                      Details
-                    </a>
-                    <DeleteClientButton id={c.id} />
+                <div className="flex items-start gap-3">
+                  <div 
+                    className="flex-shrink-0 h-12 w-12 rounded-full flex items-center justify-center text-sm font-semibold"
+                    style={{ 
+                      backgroundColor: 'rgba(var(--color-primary-rgb, 0, 122, 255), 0.1)',
+                      color: 'var(--color-primary)'
+                    }}
+                  >
+                    {initials}
                   </div>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td className="px-4 py-8 text-center" style={{ color: 'var(--color-text-tertiary)' }} colSpan={4}>
-                  Keine Treffer gefunden
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-semibold text-gray-900 mb-1 break-words">
+                      {fullName}
+                    </h3>
+                    {c.email && (
+                      <p className="text-sm text-gray-600 mb-1 break-all">
+                        📧 {c.email}
+                      </p>
+                    )}
+                    <p className="text-sm text-gray-500 mb-3 break-words">
+                      📍 {address}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={`/clients/${c.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (privacyMode) {
+                            setActiveClientId(c.id)
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
+                        style={{ 
+                          backgroundColor: 'var(--color-primary)',
+                          color: 'white'
+                        }}
+                      >
+                        Details anzeigen
+                        <span>→</span>
+                      </a>
+                      <DeleteClientButton id={c.id} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        )}
       </div>
 
       {makeResults.length > 0 && (
