@@ -1,14 +1,8 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
-import path from 'path'
 
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: `file:${path.resolve(process.cwd(), 'prisma', 'dev.db')}`,
-    },
-  },
-})
+// Prisma nutzt automatisch DATABASE_URL aus .env.local
+const prisma = new PrismaClient()
 
 async function main() {
   const email = process.argv[2] || 'admin@example.com'
