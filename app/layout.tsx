@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { Navigation } from '@/app/components/Navigation'
 import { ThemeProvider } from '@/styles/themes/themeContext'
 import { SettingsProvider } from '@/lib/settings-context'
+import { PrivacyProvider } from '@/app/contexts/PrivacyContext'
 
 export const metadata = {
   title: 'iFinance',
@@ -15,10 +16,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="min-h-screen">
         <ThemeProvider>
           <SettingsProvider>
-            <Navigation />
-            <main className="min-h-screen bg-[var(--color-bg-primary)]">
-              {children}
-            </main>
+            <PrivacyProvider>
+              <Navigation />
+              <main className="min-h-screen bg-[var(--color-bg-primary)]">
+                {children}
+              </main>
+            </PrivacyProvider>
           </SettingsProvider>
         </ThemeProvider>
       </body>

@@ -3,15 +3,17 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, Eye, EyeOff } from 'lucide-react'
 import LogoutButton from '@/components/logout-button'
 import ThemeToggle from '@/components/settings/ThemeToggle'
+import { usePrivacy } from '@/app/contexts/PrivacyContext'
 
 export function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const pathname = usePathname()
+  const { privacyMode, togglePrivacyMode } = usePrivacy()
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
@@ -243,6 +245,29 @@ export function Navigation() {
               {item.label}
             </Link>
           ))}
+          <button
+            onClick={togglePrivacyMode}
+            style={{
+              display: 'block',
+              padding: '1rem',
+              color: privacyMode ? '#007AFF' : '#000',
+              textDecoration: 'none',
+              fontWeight: privacyMode ? 600 : 400,
+              borderRadius: '0.5rem',
+              backgroundColor: privacyMode ? 'rgba(0, 122, 255, 0.1)' : 'transparent',
+              marginBottom: '0.5rem',
+              border: 'none',
+              width: '100%',
+              textAlign: 'left',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            {privacyMode ? <EyeOff size={20} /> : <Eye size={20} />}
+            <span>{privacyMode ? 'Datenschutz-Modus aus' : 'Datenschutz-Modus an'}</span>
+          </button>
           <div style={{
             padding: '1rem',
             borderTop: '1px solid rgba(0, 0, 0, 0.1)',

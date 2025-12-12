@@ -1,6 +1,7 @@
 "use client"
 import { useEffect, useMemo, useState } from 'react'
 import DeleteClientButton from './[id]/delete-button'
+import { usePrivacy } from '@/app/contexts/PrivacyContext'
 
 type Client = {
   id: string
