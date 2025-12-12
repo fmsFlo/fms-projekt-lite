@@ -2,6 +2,7 @@ import './globals.css'
 import type { ReactNode } from 'react'
 import Navigation from '@/components/navigation'
 import { ThemeProvider } from '@/styles/themes/themeContext'
+import { SettingsProvider } from '@/lib/settings-context'
 
 export const metadata = {
   title: 'iFinance',
