@@ -97,7 +97,7 @@ function LoginContent() {
           </p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-6">
+        <form onSubmit={handleLogin} method="post" className="space-y-6">
           {error && (
             <div className="p-3 rounded-lg text-sm" style={{ backgroundColor: 'rgba(255, 59, 48, 0.1)', border: '1px solid rgba(255, 59, 48, 0.3)', color: 'var(--color-error)' }}>
               {error}
@@ -110,7 +110,9 @@ function LoginContent() {
             </label>
             <input
               id="email"
+              name="email"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -130,7 +132,9 @@ function LoginContent() {
             </label>
             <input
               id="password"
+              name="password"
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
