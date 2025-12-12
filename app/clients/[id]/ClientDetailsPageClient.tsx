@@ -57,14 +57,14 @@ export default function ClientDetailsPageClient({
   const [activeTab, setActiveTab] = useState('details')
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
-      {/* Header with Client Name */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+    <div className="max-w-5xl mx-auto px-3 md:px-4 py-4 md:py-6">
+      {/* Header with Client Name - Hidden on mobile since EditClientForm shows it */}
+      <div className="mb-4 md:mb-6 hidden md:block">
+        <h1 className="text-xl md:text-2xl font-bold break-words" style={{ color: 'var(--color-text-primary)' }}>
           {customerName}
         </h1>
         {client.email && (
-          <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+          <p className="text-sm mt-1 break-all" style={{ color: 'var(--color-text-secondary)' }}>
             {client.email}
           </p>
         )}
@@ -77,7 +77,7 @@ export default function ClientDetailsPageClient({
       />
 
       {/* Tab Content */}
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {activeTab === 'details' && (
           <div className="space-y-6">
             <EditClientForm client={client} />
@@ -112,11 +112,9 @@ export default function ClientDetailsPageClient({
         )}
       </div>
 
-      {/* Delete Button - Always visible but in a fixed position on mobile */}
-      <div className="fixed bottom-4 right-4 md:relative md:bottom-auto md:right-auto md:mt-6">
-        <div className="md:hidden">
-          <DeleteClientButton id={client.id} />
-        </div>
+      {/* Delete Button - Hidden on mobile (shown in navigation) */}
+      <div className="hidden md:block mt-6">
+        <DeleteClientButton id={client.id} />
       </div>
     </div>
   )

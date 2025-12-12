@@ -87,22 +87,24 @@ export default function EditClientForm({ client }: { client: Client }) {
   if (!isEditing) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>{client.firstName} {client.lastName}</h1>
-            <div className="space-y-1 mt-2" style={{ color: 'var(--color-text-secondary)' }}>
-              {client.email && <p>📧 {client.email}</p>}
-              {client.phone && <p>📞 {client.phone}</p>}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl md:text-2xl font-semibold break-words" style={{ color: 'var(--color-text-primary)' }}>
+              {client.firstName} {client.lastName}
+            </h1>
+            <div className="space-y-1 mt-2 text-sm md:text-base" style={{ color: 'var(--color-text-secondary)' }}>
+              {client.email && <p className="break-all">📧 {client.email}</p>}
+              {client.phone && <p className="break-all">📞 {client.phone}</p>}
               {(client.street || client.city) && (
-                <p>📍 {client.street} {client.houseNumber}, {client.zip} {client.city}</p>
+                <p className="break-words">📍 {client.street} {client.houseNumber}, {client.zip} {client.city}</p>
               )}
-              {client.iban && <p>🏦 {client.iban}</p>}
-              {client.crmId && <p className="text-sm" style={{ color: 'var(--color-text-tertiary)' }}>CRM-ID: {client.crmId}</p>}
+              {client.iban && <p className="break-all">🏦 {client.iban}</p>}
+              {client.crmId && <p className="text-xs md:text-sm break-all" style={{ color: 'var(--color-text-tertiary)' }}>CRM-ID: {client.crmId}</p>}
             </div>
           </div>
           <button
             onClick={() => setIsEditing(true)}
-            className="inline-flex items-center justify-center text-white hover:opacity-90 transition-opacity"
+            className="inline-flex items-center justify-center text-white hover:opacity-90 transition-opacity w-full md:w-auto shrink-0"
             style={{
               padding: '10px 24px',
               borderRadius: 'var(--radius-pill)',
@@ -124,8 +126,8 @@ export default function EditClientForm({ client }: { client: Client }) {
         <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>Kundendaten bearbeiten</h2>
       </div>
 
-      <div className="rounded-lg p-4 space-y-4" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="rounded-lg p-3 md:p-4 space-y-4" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Vorname *</label>
             <input
@@ -334,11 +336,11 @@ export default function EditClientForm({ client }: { client: Client }) {
           </div>
         </div>
 
-        <div className="flex gap-3 pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+        <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
           <button
             onClick={onSave}
             disabled={saving || !form.firstName}
-            className="px-4 py-2 rounded text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="w-full sm:w-auto px-4 py-2 rounded text-white hover:opacity-90 transition-opacity disabled:opacity-50"
             style={{ 
               backgroundColor: 'var(--color-success)',
               borderRadius: 'var(--radius-pill)'
@@ -369,7 +371,7 @@ export default function EditClientForm({ client }: { client: Client }) {
               })
               setIsEditing(false)
             }}
-            className="px-4 py-2 rounded border hover:opacity-90 transition-opacity"
+            className="w-full sm:w-auto px-4 py-2 rounded border hover:opacity-90 transition-opacity"
             style={{
               borderColor: 'var(--color-border)',
               backgroundColor: 'var(--color-bg-tertiary)',

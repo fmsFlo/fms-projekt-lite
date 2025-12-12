@@ -45,7 +45,7 @@ export default function ClientDetailsNav({ activeTab, onTabChange, onDelete }: C
           <div className="ml-auto flex items-center">
             <button
               onClick={onDelete}
-              className="flex items-center gap-2 px-4 py-3 text-sm font-medium text-red-600 hover:text-red-700 transition-colors"
+              className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-3 text-sm font-medium text-red-600 hover:text-red-700 transition-colors"
             >
               <Trash2 size={18} />
               <span className="hidden lg:inline">Löschen</span>
