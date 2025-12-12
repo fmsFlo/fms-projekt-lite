@@ -103,7 +103,9 @@ export default function SettingsPage() {
           stripeSecretKey: data.stripeSecretKey || '',
           stripePublishableKey: data.stripePublishableKey || '',
           sevdeskApiToken: data.sevdeskApiToken || '',
-          sevdeskApiUrl: data.sevdeskApiUrl || ''
+          sevdeskApiUrl: data.sevdeskApiUrl || '',
+          primaryColor: data.primaryColor || '#007AFF',
+          secondaryColor: data.secondaryColor || '#5856D6'
         })
       } else {
         const errorData = await res.json().catch(() => ({}))
@@ -453,6 +455,67 @@ export default function SettingsPage() {
               <label className="block text-sm mb-1">Slogan / Tagline</label>
                   <input name="companySlogan" value={form.companySlogan} onChange={onChange} className="w-full border border-gray-300 rounded-md px-3 py-2" placeholder="z.B. finance made simple" />
               <p className="text-xs text-gray-500 mt-1">Wird neben dem Logo angezeigt</p>
+            </div>
+            
+            {/* Brand Colors */}
+            <div className="border-t border-gray-200 pt-4 mt-4">
+              <h3 className="text-md font-semibold mb-4 text-gray-900">Markenfarben</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm mb-2 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                    Primary Color (Buttons, Links)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      name="primaryColor"
+                      value={form.primaryColor}
+                      onChange={onChange}
+                      className="h-12 w-20 rounded border border-gray-300 cursor-pointer"
+                      style={{ backgroundColor: form.primaryColor }}
+                    />
+                    <input
+                      type="text"
+                      name="primaryColor"
+                      value={form.primaryColor}
+                      onChange={onChange}
+                      className="flex-1 border border-gray-300 rounded-md px-3 py-2 font-mono text-sm"
+                      placeholder="#007AFF"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Wird für primäre Buttons und Links verwendet</p>
+                </div>
+                <div>
+                  <label className="block text-sm mb-2 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                    Secondary Color (Accents)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      name="secondaryColor"
+                      value={form.secondaryColor}
+                      onChange={onChange}
+                      className="h-12 w-20 rounded border border-gray-300 cursor-pointer"
+                      style={{ backgroundColor: form.secondaryColor }}
+                    />
+                    <input
+                      type="text"
+                      name="secondaryColor"
+                      value={form.secondaryColor}
+                      onChange={onChange}
+                      className="flex-1 border border-gray-300 rounded-md px-3 py-2 font-mono text-sm"
+                      placeholder="#5856D6"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Wird für sekundäre Akzente verwendet</p>
+                </div>
+              </div>
+              <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded">
+                <p className="text-xs text-gray-600">
+                  💡 <strong>Tipp:</strong> Die Farben werden automatisch in allen Buttons und UI-Elementen verwendet. 
+                  Verwenden Sie helle, kontrastreiche Farben für beste Lesbarkeit.
+                </p>
+              </div>
             </div>
           </div>
         </section>

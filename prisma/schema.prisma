@@ -143,6 +143,10 @@ model CompanySettings {
   logoUrl                   String?
   companySlogan             String?
   
+  // Brand colors (Apple-inspired)
+  primaryColor              String   @default("#007AFF")  // Apple Blue
+  secondaryColor            String   @default("#5856D6")  // Apple Purple
+  
   // Zahlungsinformationen
   advisorIban               String?
   paymentSubject            String?

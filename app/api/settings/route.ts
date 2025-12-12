@@ -50,7 +50,9 @@ const settingsSchema = z.object({
   sevdeskApiToken: z.string().nullable().optional().transform(v => (v && v.trim()) || undefined),
   sevdeskApiUrl: z.string().nullable().optional().transform(v => (v && v.trim()) || undefined),
   closeApiKey: z.string().nullable().optional().transform(v => (v && v.trim()) || undefined),
-  calendlyApiToken: z.string().nullable().optional().transform(v => (v && v.trim()) || undefined)
+  calendlyApiToken: z.string().nullable().optional().transform(v => (v && v.trim()) || undefined),
+  primaryColor: z.string().optional().transform(v => (v && v.trim()) || undefined),
+  secondaryColor: z.string().optional().transform(v => (v && v.trim()) || undefined)
 })
 
 export async function GET(req: NextRequest) {
@@ -96,7 +98,8 @@ export async function POST(req: NextRequest) {
       'logoUrl', 'companySlogan',
       'advisorIban', 'paymentSubject', 'creditorId',
       'stripeSecretKey', 'stripePublishableKey',
-      'sevdeskApiToken', 'sevdeskApiUrl'
+      'sevdeskApiToken', 'sevdeskApiUrl',
+      'primaryColor', 'secondaryColor'
     ]
     
     for (const [key, value] of Object.entries(data)) {
