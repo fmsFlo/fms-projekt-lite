@@ -27,6 +27,7 @@
     "cookie": "^0.7.0",
     "date-fns": "^4.1.0",
     "handlebars": "^4.7.8",
+    "lucide-react": "^0.561.0",
     "next": "14.2.33",
     "pdf-parse": "^2.4.5",
     "postcss": "^8.4.47",
