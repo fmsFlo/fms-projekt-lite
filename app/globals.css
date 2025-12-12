@@ -9,6 +9,11 @@
 
 :root {
   --bg: 255 255 255;
+  /* Brand colors - will be dynamically set by SettingsProvider */
+  --color-primary: #007AFF;
+  --color-primary-rgb: 0, 122, 255;
+  --color-secondary: #5856D6;
+  --color-secondary-rgb: 88, 86, 214;
 }
 
 html, body {

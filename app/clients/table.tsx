@@ -209,67 +209,149 @@ export default function ClientsClient({ initialClients }: { initialClients: Clie
       </div>
 
       {makeResults.length > 0 && (
-        <div className="rounded-lg p-4 shadow-sm" style={{ backgroundColor: 'rgba(0, 113, 227, 0.1)', border: '1px solid rgba(0, 113, 227, 0.2)' }}>
-          <h3 className="font-semibold mb-3" style={{ color: 'var(--color-primary)' }}>🎯 Gefundene Kunden aus deinem CRM</h3>
-          <div className="rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-md)' }}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b" style={{ backgroundColor: 'var(--color-bg-tertiary)', borderColor: 'var(--color-border)' }}>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>E-Mail</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>Adresse</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>IBAN</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>Aktion</th>
-                </tr>
-              </thead>
-              <tbody style={{ borderColor: 'var(--color-border)' }}>
-                {makeResults.map((r, i) => (
-                  <tr 
-                    key={i} 
-                    className="transition-colors"
+        <div className="rounded-xl p-4 md:p-6 shadow-sm border" style={{ 
+          backgroundColor: 'rgba(var(--color-secondary-rgb, 88, 86, 214), 0.05)', 
+          borderColor: 'rgba(var(--color-secondary-rgb, 88, 86, 214), 0.2)' 
+        }}>
+          <h3 className="font-semibold mb-4 text-lg" style={{ color: 'var(--color-secondary)' }}>
+            🎯 Gefundene Kunden aus deinem CRM
+          </h3>
+          
+          {/* Desktop Table */}
+          <div className="hidden md:block bg-white rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">E-Mail</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adresse</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IBAN</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Aktion</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {makeResults.map((r, i) => (
+                    <tr key={i} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{r.firstName} {r.lastName}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 break-all">{r.email}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">
+                          {r.street && r.zip && r.city ? (
+                            `${r.street} ${r.houseNumber || ''}, ${r.zip} ${r.city}`
+                          ) : (
+                            <span className="italic text-gray-400">Keine Adresse</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 font-mono">
+                          {r.iban ? `${r.iban.substring(0, 8)}...` : <span className="italic text-gray-400">Keine IBAN</span>}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button 
+                          onClick={() => importClient(r)}
+                          disabled={loadingImport}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg font-medium transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{ 
+                            backgroundColor: 'var(--color-primary)',
+                            color: 'white'
+                          }}
+                        >
+                          {loadingImport ? (
+                            <>
+                              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              <span>Importiere…</span>
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              <span>Kunde anlegen</span>
+                            </>
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden space-y-3">
+            {makeResults.map((r, i) => {
+              const initials = `${r.firstName?.[0] || ''}${r.lastName?.[0] || ''}`.toUpperCase()
+              const fullName = `${r.firstName} ${r.lastName}`.trim()
+              const address = r.street && r.zip && r.city 
+                ? `${r.street} ${r.houseNumber || ''}, ${r.zip} ${r.city}`
+                : 'Keine Adresse'
+              
+              return (
+                <div key={i} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+                  <div className="flex items-start gap-3 mb-3">
+                    <div 
+                      className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-sm font-semibold"
+                      style={{ 
+                        backgroundColor: 'rgba(var(--color-secondary-rgb, 88, 86, 214), 0.1)',
+                        color: 'var(--color-secondary)'
+                      }}
+                    >
+                      {initials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-1 break-words">{fullName}</h4>
+                      {r.email && (
+                        <p className="text-xs text-gray-600 mb-1 break-all">📧 {r.email}</p>
+                      )}
+                      <p className="text-xs text-gray-500 mb-1 break-words">📍 {address}</p>
+                      {r.iban && (
+                        <p className="text-xs text-gray-500 font-mono">🏦 {r.iban.substring(0, 8)}...</p>
+                      )}
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => importClient(r)}
+                    disabled={loadingImport}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ 
-                      backgroundColor: i % 2 === 0 ? 'var(--color-bg-secondary)' : 'var(--color-bg-tertiary)',
-                      borderTop: i > 0 ? '1px solid var(--color-border)' : 'none'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = i % 2 === 0 ? 'var(--color-bg-secondary)' : 'var(--color-bg-tertiary)'
+                      backgroundColor: 'var(--color-primary)',
+                      color: 'white'
                     }}
                   >
-                    <td className="px-4 py-3 font-medium" style={{ color: 'var(--color-text-primary)' }}>{r.firstName} {r.lastName}</td>
-                    <td className="px-4 py-3" style={{ color: 'var(--color-text-secondary)' }}>{r.email}</td>
-                    <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                      {r.street && r.zip && r.city ? (
-                        `${r.street} ${r.houseNumber || ''}, ${r.zip} ${r.city}`
-                      ) : (
-                        <span className="italic" style={{ color: 'var(--color-text-tertiary)' }}>Keine Adresse</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                      {r.iban ? (
-                        <span className="font-mono">{r.iban.substring(0, 8)}...</span>
-                      ) : (
-                        <span className="italic" style={{ color: 'var(--color-text-tertiary)' }}>Keine IBAN</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button 
-                        onClick={() => importClient(r)}
-                        disabled={loadingImport}
-                        className="px-4 py-2 rounded-md text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-opacity"
-                        style={{ backgroundColor: 'var(--color-success)' }}
-                      >
-                        ✓ Kunde anlegen
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    {loadingImport ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Importiere…</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Kunde anlegen</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )
+            })}
           </div>
-          <p className="text-xs mt-3" style={{ color: 'var(--color-text-secondary)' }}>
+
+          <p className="text-xs mt-4 text-gray-600">
             ℹ️ Alle verfügbaren Daten aus deinem CRM werden automatisch übernommen.
           </p>
         </div>
