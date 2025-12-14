@@ -31,6 +31,31 @@ a {
   @apply text-blue-600 hover:underline;
 }
 
+/* Apple-Style Mobile Client List - Stripes Pattern */
+/* Light Mode: Weiß (#FFFFFF) und sehr helles Grau (#FAFAFA) */
+/* Dark Mode: Dunkles Grau (#1C1C1E) und noch dunkleres Grau (#2C2C2E) */
+.client-row-mobile {
+  transition: background-color 0.2s ease;
+}
+
+/* Light Mode Stripes - alternierend */
+:root .client-row-mobile:nth-child(even) {
+  background-color: var(--color-bg-secondary) !important; /* Weiß */
+}
+
+:root .client-row-mobile:nth-child(odd) {
+  background-color: var(--color-bg-tertiary) !important; /* Sehr helles Grau */
+}
+
+/* Dark Mode Stripes - alternierend */
+[data-theme="dark"] .client-row-mobile:nth-child(even) {
+  background-color: var(--color-bg-secondary) !important; /* Dunkles Grau (#1C1C1E) */
+}
+
+[data-theme="dark"] .client-row-mobile:nth-child(odd) {
+  background-color: var(--color-bg-tertiary) !important; /* Noch dunkleres Grau (#2C2C2E) */
+}
+
 /* Template Cards - Apple Style */
 .template-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease;

@@ -47,6 +47,19 @@ export default async function RetirementConceptPage({ params }: Params) {
           </div>
           <div className="flex items-center gap-3">
             <a
+              href={`/clients/${concept.client.id}/retirement-concept/${concept.id}/ergebnis`}
+              className="inline-flex items-center justify-center text-white hover:opacity-90 transition-opacity"
+              style={{
+                padding: '12px 24px',
+                borderRadius: 'var(--radius-pill)',
+                fontSize: 'var(--text-base)',
+                fontWeight: 'var(--weight-medium)',
+                backgroundColor: 'var(--color-primary)'
+              }}
+            >
+              📊 Ergebnis anzeigen
+            </a>
+            <a
               href={`/api/retirement-concepts/${concept.id}/pdf`}
               className="inline-flex items-center justify-center text-white hover:opacity-90 transition-opacity"
               style={{

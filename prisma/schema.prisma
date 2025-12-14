@@ -40,6 +40,8 @@ model Client {
   opportunities Opportunity[]
   leads         Lead[]
   retirementConcepts RetirementConcept[]
+  einnahmenAusgaben EinnahmenAusgaben[]
+  versicherungsChecks VersicherungsCheck[]
 
   @@schema("public")
 }
@@ -478,4 +480,37 @@ model User {
 //   wunschrente         Float?
 //   notes               String?
 // }
+
+model EinnahmenAusgaben {
+  id                String   @id @default(cuid())
+  clientId          String
+  client            Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  beruf             String?
+  nettoEinkommen    Float     @default(0)
+  persoenlicheDaten String?   // JSON
+  fixkosten         String?   // JSON
+  variableKosten    String?   // JSON
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([clientId])
+  @@schema("public")
+}
+
+model VersicherungsCheck {
+  id                    String   @id @default(cuid())
+  clientId              String
+  client                Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  versicherungen        String?   // JSON
+  gesamtBeitragVorher   Float     @default(0)
+  gesamtBeitragNachher  Float     @default(0)
+  einsparung            Float     @default(0)
+  risikoStatusVorher    String?   // 'kritisch' | 'mittel' | 'gut'
+  risikoStatusNachher   String?   // 'kritisch' | 'mittel' | 'gut'
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([clientId])
+  @@schema("public")
+}
 

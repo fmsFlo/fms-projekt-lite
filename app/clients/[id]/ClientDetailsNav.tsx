@@ -14,8 +14,8 @@ export default function ClientDetailsNav({ activeTab, onTabChange, onDelete }: C
 
   const tabs = [
     { id: 'details', label: 'Details', icon: User },
-    { id: 'contracts', label: 'Verträge', icon: FileText },
-    { id: 'concept', label: 'Konzept', icon: Calculator },
+    { id: 'contracts', label: 'Dokumente', icon: FileText },
+    { id: 'concept', label: 'Analyse Tools', icon: Calculator },
   ]
 
   return (

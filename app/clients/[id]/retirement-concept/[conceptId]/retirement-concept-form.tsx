@@ -8,6 +8,7 @@ import berechneBeamtenpension, { berechneSteuern } from '@/lib/beamtenpension/be
 import type { BeamtenpensionErgebnis } from '@/lib/beamtenpension/types'
 import { BEAMTEN_BESOLDUNG, BESOLDUNG_DATA_STAND } from '../../../../../lib/beamtenpension/besoldungstabellen'
 import type { Bundesland } from '../../../../../lib/beamtenpension/besoldungstabellen'
+import RetirementCalculator from '@/app/components/retirement/RetirementCalculator'
 
 type ProvisionType = 
   | 'Privatrente'
@@ -141,6 +142,10 @@ const calculateProvisionMonthlyTax = (
     annualAllowance?: number
     withdrawalRate?: number
     taxableShareOverride?: number
+    partialExemption?: number // in Prozent (z.B. 30 für 30%)
+    acquisitionCosts?: number
+    capitalGainsTaxRate?: number // in Prozent (z.B. 26.375 für 26,375%)
+    capitalGainsAllowance?: number
   },
 ) => {
   if (monthlyGross <= 0) {
@@ -159,17 +164,40 @@ const calculateProvisionMonthlyTax = (
     const capitalAmount = Math.max(0, options?.capitalAmount ?? 0)
     const withdrawalRate = Math.max(0, options?.withdrawalRate ?? 0)
 
-    if (capitalAmount <= 0 || withdrawalRate <= 0) {
+    if (capitalAmount <= 0 || withdrawalRate <= 0 || monthlyGross <= 0) {
       return 0
     }
 
-    const annualInterest = capitalAmount * withdrawalRate
-    const taxableInterest = Math.max(0, annualInterest * taxableShare - allowanceAnnual)
-    if (taxableInterest <= 0) {
+    // Teilfreistellung aus Formular (Standard: 30% bei Aktienfonds/ETFs)
+    // Diese Werte können in der Detailansicht angepasst werden
+    const partialExemption = (options?.partialExemption ?? 0.30) / 100
+    const acquisitionCosts = options?.acquisitionCosts ?? 0
+    const capitalGainsTaxRate = (options?.capitalGainsTaxRate ?? 26.375) / 100
+    const capitalGainsAllowance = options?.capitalGainsAllowance ?? 1000
+    
+    // monthlyGross ist bereits die monatliche Entnahme
+    // Jahresentnahme = monatliche Entnahme * 12
+    const annualWithdrawal = monthlyGross * 12
+    
+    // Berechnung des steuerpflichtigen Gewinns:
+    // 1. Gewinnanteil der Entnahme = (Kapital - Anschaffungskosten) / Kapital
+    //    Wenn Anschaffungskosten >= Kapital, dann ist der gesamte Gewinnanteil = 0
+    const gainPortion = capitalAmount > 0 ? Math.max(0, capitalAmount - acquisitionCosts) / capitalAmount : 0
+    const annualGain = annualWithdrawal * gainPortion
+    
+    // 2. Teilfreistellung anwenden (nur (1 - Teilfreistellung) der Gewinne sind steuerpflichtig)
+    //    Bei 30% Teilfreistellung sind 70% der Gewinne steuerpflichtig
+    const taxableGainBeforeAllowance = annualGain * (1 - partialExemption)
+    
+    // 3. Freibetrag abziehen
+    const taxableGain = Math.max(0, taxableGainBeforeAllowance - capitalGainsAllowance)
+    
+    if (taxableGain <= 0) {
       return 0
     }
 
-    const baseTaxAnnual = taxableInterest * 0.25
+    // 4. Steuer berechnen (Kapitalertragsteuer + Soli + Kirchensteuer)
+    const baseTaxAnnual = taxableGain * capitalGainsTaxRate
     const soliAnnual = baseTaxAnnual * 0.055
     const churchAnnual = baseTaxAnnual * effectiveChurchRate
 
@@ -345,7 +373,7 @@ const INCOME_TAX_PROVISION_TYPES: ProvisionType[] = [
   'Sonstige wiederkehrende Bezüge',
 ]
 
-type EmploymentType = 'employee' | 'civil-servant'
+type EmploymentType = 'employee' | 'civil-servant' | 'self-employed'
 
 type CivilServantInputs = {
   entryDate: string
@@ -396,9 +424,16 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
   const [attachments, setAttachments] = useState<ConceptAttachment[]>(initialAttachments ?? [])
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
+  
+  // Verhindere Hydration-Probleme durch client-seitiges Rendering
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
   const [htmlPreview, setHtmlPreview] = useState<string>('')
   const [htmlPreviewOriginal, setHtmlPreviewOriginal] = useState<string | null>(null)
   const [loadingHtmlPreview, setLoadingHtmlPreview] = useState(false)
+  const [showTaxDetailsModal, setShowTaxDetailsModal] = useState(false)
   const [htmlPreviewError, setHtmlPreviewError] = useState<string | null>(null)
   const [htmlCopyFeedback, setHtmlCopyFeedback] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
   const [htmlTemplateData, setHtmlTemplateData] = useState<RetirementConceptTemplateData | null>(null)
@@ -516,6 +551,16 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
       initialCivilServantMeta?.inputs.privateContributionCurrent != null
         ? String(initialCivilServantMeta.inputs.privateContributionCurrent)
         : '',
+    // Felder für Punkte-Schätzung (wenn keine Renteninfo vorhanden)
+    currentGrossIncome: (initialConcept as any).currentGrossIncome?.toString() || '',
+    pastWorkingYears: (initialConcept as any).pastWorkingYears?.toString() || '',
+    trainingYears: (initialConcept as any).trainingYears?.toString() || '',
+    childrenYears: (initialConcept as any).childrenYears?.toString() || '',
+    // Steuerdetails für Sparrate
+    partialExemption: (initialConcept as any).partialExemption?.toString() || '30.0',
+    acquisitionCosts: (initialConcept as any).acquisitionCosts?.toString() || '',
+    capitalGainsTaxRate: (initialConcept as any).capitalGainsTaxRate?.toString() || '26.375',
+    capitalGainsAllowance: (initialConcept as any).capitalGainsAllowance?.toString() || '1000',
   })
 
   const [provisions, setProvisions] = useState<Provision[]>(initialProvisions)
@@ -831,14 +876,118 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
     if (!formData.birthDate || !formData.desiredRetirementAge) return null
     const birthDate = new Date(formData.birthDate)
     const today = new Date()
+    const retirementAge = parseInt(formData.desiredRetirementAge) || 67
+    
+    // Exakte Berechnung mit Monaten und Tagen (nicht gerundet)
+    const retirementDate = new Date(birthDate)
+    retirementDate.setFullYear(birthDate.getFullYear() + retirementAge)
+    
+    const diffTime = retirementDate.getTime() - today.getTime()
+    const diffDays = diffTime / (1000 * 60 * 60 * 24)
+    const exactYears = diffDays / 365.25 // Berücksichtigt Schaltjahre
+    
+    return Math.max(0, exactYears)
+  }
+
+  // Berechne erstes Rentenjahr
+  const calculateFirstRetirementYear = (): number | null => {
+    if (!formData.birthDate || !formData.desiredRetirementAge) return null
+    const birthDate = new Date(formData.birthDate)
+    const retirementAge = parseInt(formData.desiredRetirementAge) || 67
+    const retirementYear = birthDate.getFullYear() + retirementAge
+    return retirementYear
+  }
+
+  // Berechne steuerpflichtigen Anteil basierend auf Rentenjahr
+  // Start: 84% (2025), steigt um 0,5% pro Jahr, max 100% (bis 2058)
+  const calculateTaxableShareForRetirementYear = (retirementYear: number): number => {
+    const baseYear = 2025
+    const basePercentage = 84.0
+    const maxPercentage = 100.0
+    const incrementPerYear = 0.5
+    
+    if (retirementYear < baseYear) {
+      return basePercentage
+    }
+    
+    const yearsFromBase = retirementYear - baseYear
+    const calculatedPercentage = basePercentage + (yearsFromBase * incrementPerYear)
+    return Math.min(maxPercentage, Math.max(basePercentage, calculatedPercentage))
+  }
+
+  // Berechne aktuelles Alter
+  const calculateCurrentAge = (): number | null => {
+    if (!formData.birthDate) return null
+    const birthDate = new Date(formData.birthDate)
+    const today = new Date()
     const age = today.getFullYear() - birthDate.getFullYear()
     const monthDiff = today.getMonth() - birthDate.getMonth()
-    const adjustedAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate()) ? age - 1 : age
-    const retirementAge = parseInt(formData.desiredRetirementAge) || 67
-    return Math.max(0, retirementAge - adjustedAge)
+    return monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate()) ? age - 1 : age
+  }
+
+  // Schätze Rentenpunkte basierend auf aktuellem Einkommen und Arbeitsjahren
+  const estimatePensionPoints = (): number => {
+    // Jahresentgeltgrenze 2026: 51.944€ (da wir Mitte Dezember haben, können wir 2026 nehmen)
+    const JAHRESENTGELTGRENZE = 51944
+    
+    // Aktuelles Bruttoeinkommen (jährlich)
+    const currentGrossIncomeAnnual = parseFloat(formData.currentGrossIncome || '0')
+    if (currentGrossIncomeAnnual <= 0) return 0
+    
+    // Aktuelle Punkte pro Jahr = Verhältnis zu Jahresentgeltgrenze
+    // Maximal 2.0 Punkte pro Jahr (bei doppelter Entgeltgrenze)
+    const pointsPerYear = Math.min(2.0, currentGrossIncomeAnnual / JAHRESENTGELTGRENZE)
+    
+    // Vergangene Arbeitsjahre (direkt eingegeben)
+    const pastWorkingYears = Math.max(0, parseFloat(formData.pastWorkingYears || '0'))
+    
+    // Zukünftige Arbeitsjahre
+    const yearsToRetirement = calculateYearsToRetirement() || 0
+    
+    // Vergangene Punkte (Annahme: gleiche Punkte wie heute)
+    const pastPoints = pastWorkingYears * pointsPerYear
+    
+    // Zukünftige Punkte (Annahme: gleiche Punkte wie heute)
+    const futurePoints = yearsToRetirement * pointsPerYear
+    
+    // Zusätzliche Punkte für Ausbildung
+    // 0,75 Punkte pro Jahr, maximal 3 Jahre = 2,25 Punkte gesamt
+    // Aber auch 2,5 oder 2 Jahre möglich (dann entsprechend multiplizieren)
+    const trainingYears = Math.min(3, Math.max(0, parseFloat(formData.trainingYears || '0')))
+    const trainingPoints = trainingYears * 0.75
+    
+    // Zusätzliche Punkte für Kindererziehung
+    // 3 Entgeltpunkte wenn nach 1992 geboren, davor 2,5 Punkte
+    // Wir fragen nicht nach Geburtsjahr, nehmen daher 3 Punkte als Standard (konservativ)
+    // childrenYears wird als Anzahl Kinder interpretiert (nicht Jahre)
+    const numberOfChildren = Math.max(0, Math.floor(parseFloat(formData.childrenYears || '0')))
+    const childrenPoints = numberOfChildren * 3 // 3 Punkte pro Kind (nach 1992)
+    
+    // Gesamtpunkte
+    const totalPoints = pastPoints + futurePoints + trainingPoints + childrenPoints
+    
+    return Math.max(0, totalPoints)
+  }
+
+  // Berechne geschätzte Rente aus Punkten
+  const calculateEstimatedPensionFromPoints = (points: number): number => {
+    // Rentenwert 2024: ~37,60€ pro Punkt (wird jährlich angepasst)
+    // Wir verwenden 37,60€ als Basis und rechnen mit Inflation hoch
+    const RENTENWERT_BASIS = 37.60
+    const yearsToRetirement = calculateYearsToRetirement() || 0
+    const inflationRate = parseFloat(formData.inflationRate || '2.0') / 100
+    
+    // Rentenwert zum Rentenbeginn (inflationsbereinigt)
+    const rentenwertFuture = RENTENWERT_BASIS * Math.pow(1 + inflationRate, yearsToRetirement)
+    
+    // Monatliche Rente (Brutto)
+    const monthlyGrossPension = points * rentenwertFuture
+    
+    return Math.max(0, monthlyGrossPension)
   }
 
   const isCivilServant: boolean = formData.employmentType === 'civil-servant'
+  const isSelfEmployed: boolean = formData.employmentType === 'self-employed'
 
   const selectedBundesland = (formData.civilServiceState as Bundesland) || 'Baden-Württemberg'
 
@@ -1193,6 +1342,47 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
       }
     }
 
+    // Wenn keine Renteninfo vorhanden, aber selbstständig/nicht versichert → Schätzung
+    if (!formData.hasCurrentPensionInfo && formData.employmentType === 'self-employed') {
+      const estimatedPoints = estimatePensionPoints()
+      const estimatedGrossPension = calculateEstimatedPensionFromPoints(estimatedPoints)
+      
+      if (estimatedGrossPension <= 0 || !yearsToRetirement || yearsToRetirement <= 0) {
+        return { currentValue: null, futureValue: null }
+      }
+      
+      // Annahme: Rentensteigerung wie bei gesetzlicher Rente (ca. 1-2% p.a.)
+      const pensionIncrease = parseFloat(formData.pensionIncrease || '1.5') / 100
+      const futureValue = estimatedGrossPension * Math.pow(1 + pensionIncrease, yearsToRetirement)
+      const currentValue = futureValue / Math.pow(1 + inflationRate, yearsToRetirement)
+      
+      return {
+        currentValue: round(currentValue),
+        futureValue: round(futureValue),
+      }
+    }
+
+    // Wenn keine Renteninfo vorhanden, aber Angestellter → Schätzung basierend auf Punkten
+    if (!formData.hasCurrentPensionInfo && formData.employmentType === 'employee') {
+      const estimatedPoints = estimatePensionPoints()
+      const estimatedGrossPension = calculateEstimatedPensionFromPoints(estimatedPoints)
+      
+      if (estimatedGrossPension <= 0 || !yearsToRetirement || yearsToRetirement <= 0) {
+        return { currentValue: null, futureValue: null }
+      }
+      
+      // Annahme: Rentensteigerung wie bei gesetzlicher Rente (ca. 1-2% p.a.)
+      const pensionIncrease = parseFloat(formData.pensionIncrease || '1.5') / 100
+      const futureValue = estimatedGrossPension * Math.pow(1 + pensionIncrease, yearsToRetirement)
+      const currentValue = futureValue / Math.pow(1 + inflationRate, yearsToRetirement)
+      
+      return {
+        currentValue: round(currentValue),
+        futureValue: round(futureValue),
+      }
+    }
+
+    // Normale Berechnung mit vorhandener Renteninfo
     const pensionAtRetirement = parseFloat(formData.pensionAtRetirement || '0')
     const pensionIncrease = parseFloat(formData.pensionIncrease || '0') / 100
 
@@ -1405,7 +1595,28 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
       }
     }
 
-    const { currentValue, futureValue } = calculatePensionAtRetirement()
+    // Wenn keine Renteninfo vorhanden, verwende Schätzung
+    let currentValue: number | null = null
+    let futureValue: number | null = null
+    
+    if (!formData.hasCurrentPensionInfo && (formData.employmentType === 'employee' || formData.employmentType === 'self-employed')) {
+      // Verwende Punkte-Schätzung
+      const estimatedPoints = estimatePensionPoints()
+      const estimatedGrossPension = calculateEstimatedPensionFromPoints(estimatedPoints)
+      const yearsToRetirement = calculateYearsToRetirement() || 0
+      const pensionIncrease = parseFloat(formData.pensionIncrease || '1.5') / 100
+      
+      if (estimatedGrossPension > 0 && yearsToRetirement > 0) {
+        futureValue = estimatedGrossPension * Math.pow(1 + pensionIncrease, yearsToRetirement)
+        const inflationRate = parseFloat(formData.inflationRate || '2.0') / 100
+        currentValue = futureValue / Math.pow(1 + inflationRate, yearsToRetirement)
+      }
+    } else {
+      // Normale Berechnung
+      const result = calculatePensionAtRetirement()
+      currentValue = result.currentValue
+      futureValue = result.futureValue
+    }
 
     if (currentValue === null || futureValue === null) {
       return fallback
@@ -1431,8 +1642,8 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
 
     const currentYear = new Date().getFullYear()
     const retirementYear = currentYear + yearsToRetirement
-    const baseTaxableInput = parseFloat(formData.taxFreePercentage || '83.5')
-    const computedTaxableShare = Math.min(100, Math.max(0, baseTaxableInput + (retirementYear - 2025) * 0.5))
+    // Automatische Berechnung: 84% (2025) + 0,5% pro Jahr, max 100%
+    const computedTaxableShare = calculateTaxableShareForRetirementYear(retirementYear)
 
     const taxableMonthlyGross = futureValue * (computedTaxableShare / 100)
     const taxFreeAmountBase = parseFloat(formData.taxFreeAmount || '12096')
@@ -1614,7 +1825,8 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
     const capitalEquivalentBase = yearsInRetirement > 0 ? gapBefore * 12 * yearsInRetirement : 0
     const capitalEquivalentRemaining = yearsInRetirement > 0 ? gapAfter * 12 * yearsInRetirement : 0
     const capitalEquivalentCovered = Math.max(0, capitalEquivalentBase - capitalEquivalentRemaining)
-    const capitalEquivalent = yearsInRetirement > 0 ? Math.max(0, projection.monthlyPensionFuture) * 12 * yearsInRetirement : 0
+    // capitalEquivalent sollte das tatsächliche Kapital sein, nicht die monatliche Rente × Jahre
+    const capitalEquivalent = projection.futureCapital
 
     const coversPercent = gapBefore > 0
       ? Math.min(100, ((gapBefore - gapAfter) / gapBefore) * 100)
@@ -1814,12 +2026,17 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
     const monthlyReturn = Math.pow(1 + returnRate, 1 / 12) - 1
     const months = Math.max(0, savingYears * 12)
 
+    // Vorschüssige Zahlungen (Annuity Due): Zahlung am Anfang jeder Periode
+    // Formel: FV = PMT * (((1+r)^n - 1) / r) * (1+r)
     const futureCapitalRaw =
       monthlyReturn === 0
         ? monthlySavings * months
-        : monthlySavings * ((Math.pow(1 + monthlyReturn, months) - 1) / monthlyReturn)
+        : monthlySavings * ((Math.pow(1 + monthlyReturn, months) - 1) / monthlyReturn) * (1 + monthlyReturn)
 
     const futureCapital = Math.round(futureCapitalRaw * 100) / 100
+    
+    // Eingezahltes Kapital (Summe aller Einzahlungen ohne Zinsen)
+    const totalPaidIn = monthlySavings * months
 
     const withdrawalRate = parseFloat(formData.withdrawalRate || '0') / 100
     const monthlyPensionFutureRaw = calculatePensionFromCapital(futureCapital)
@@ -1827,10 +2044,19 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
     const discountFactor = totalYearsToRetirement > 0 ? Math.pow(1 + inflationRate, totalYearsToRetirement) : 1
 
     const churchRate = 0
+    const partialExemption = parseFloat(formData.partialExemption || '30.0')
+    // Anschaffungskosten: Falls nicht eingegeben, verwende eingezahltes Kapital
+    const acquisitionCosts = parseFloat(formData.acquisitionCosts || '0') || totalPaidIn
+    const capitalGainsTaxRate = parseFloat(formData.capitalGainsTaxRate || '26.375')
+    const capitalGainsAllowance = parseFloat(formData.capitalGainsAllowance || '1000')
+    
     const capitalTaxMonthly = calculateProvisionMonthlyTax(monthlyPensionFutureRaw, 'Sparen', churchRate, {
       capitalAmount: futureCapital,
-      annualAllowance: CAPITAL_GAINS_ALLOWANCE_ANNUAL,
+      annualAllowance: capitalGainsAllowance,
       withdrawalRate,
+      partialExemption,
+      acquisitionCosts,
+      capitalGainsTaxRate,
     })
 
     const monthlyPensionFutureNet = Math.max(0, monthlyPensionFutureRaw - capitalTaxMonthly)
@@ -1839,11 +2065,13 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
 
     return {
       futureCapital,
+      totalPaidIn, // Eingezahltes Kapital (ohne Zinsen)
       monthlyPensionFuture: Math.round(monthlyPensionFutureNet * 100) / 100,
       monthlyPensionFutureGross: Math.round(monthlyPensionFutureRaw * 100) / 100,
       monthlyPensionCurrent: Math.round(monthlyPensionCurrentRaw * 100) / 100,
       capitalTaxMonthly: Math.round(capitalTaxMonthly * 100) / 100,
       capitalTaxMonthlyCurrent: Math.round(capitalTaxMonthlyCurrent * 100) / 100,
+      acquisitionCosts, // Für Anzeige im Modal
     }
   }
 
@@ -2247,7 +2475,10 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
           taxFilingStatus: formData.taxFilingStatus,
       taxFreeAmount: formData.taxFreeAmount ? parseFloat(formData.taxFreeAmount) : null,
       taxIncreaseRate: formData.taxIncreaseRate ? parseFloat(formData.taxIncreaseRate) : null,
-      taxFreePercentage: formData.taxFreePercentage ? parseFloat(formData.taxFreePercentage) : null,
+      taxFreePercentage: (() => {
+        const firstRetirementYear = calculateFirstRetirementYear()
+        return firstRetirementYear ? calculateTaxableShareForRetirementYear(firstRetirementYear) : null
+      })(),
           calculationSnapshot: JSON.stringify(calculationSnapshot),
         }),
       })
@@ -2258,7 +2489,9 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
       }
 
       router.refresh()
-      alert('✅ Rentenkonzept erfolgreich gespeichert!')
+      
+      // Navigiere zur Ergebnisseite
+      router.push(`/clients/${initialConcept.clientId}/retirement-concept/${initialConcept.id}/ergebnis`)
     } catch (err: any) {
       alert(`❌ Fehler: ${err.message}`)
       console.error('Fehler beim Speichern:', err)
@@ -2278,12 +2511,37 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
       setCurrentStep(currentStep - 1)
     }
   }
+  // Formatierungsfunktion für Jahre (eine Nachkommastelle oder Jahre und Monate)
+  const formatYears = (years: number): string => {
+    if (years <= 0) return '0 Jahre'
+    const wholeYears = Math.floor(years)
+    const months = Math.round((years - wholeYears) * 12)
+    
+    if (months === 0) {
+      return `${wholeYears} Jahre`
+    } else if (wholeYears === 0) {
+      return `${months} Monate`
+    } else {
+      return `${wholeYears} Jahre ${months} Monate`
+    }
+  }
+
+  // Formatierungsfunktion für Euro-Beträge
+  const formatEuro = (value?: number | null) => {
+    if (value === null || value === undefined) return '0,00'
+    return value.toLocaleString('de-DE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+  }
+
   // Schritt 1: Basis-Daten + Vorsorge
   const renderStep1 = () => {
     const yearsInRetirement = Math.max(
       0,
       (parseInt(formData.lifeExpectancy || '0') || 0) - (parseInt(formData.desiredRetirementAge || '0') || 0)
     )
+    const yearsToRetirement = isMounted ? calculateYearsToRetirement() : null
 
     return (
       <div className="space-y-6">
@@ -2317,7 +2575,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
             />
             {yearsToRetirement !== null && (
               <p className="text-xs text-gray-500 mt-1">
-                {yearsToRetirement} Jahre bis zur Rente
+                {formatYears(yearsToRetirement)} bis zur Rente
               </p>
             )}
           </div>
@@ -2372,6 +2630,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
             >
               <option value="employee">Angestellt / gesetzlich versichert</option>
               <option value="civil-servant">Beamter / Versorgung (Beihilfe)</option>
+              <option value="self-employed">Selbstständig / nicht gesetzlich versichert</option>
             </select>
             <p className="text-xs text-gray-500 mt-1">
               Die Berechnungslogik passt sich automatisch an deinen Status an.
@@ -2887,22 +3146,22 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
     }
 
     return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-semibold">Renteninformation</h2>
-      
-      <div>
-        <label className="flex items-center gap-2 mb-4">
-          <input
-            type="checkbox"
-            checked={formData.hasCurrentPensionInfo}
-            onChange={(e) => setFormData({ ...formData, hasCurrentPensionInfo: e.target.checked })}
-            className="h-4 w-4"
-          />
-          <span className="text-sm font-medium">Hat aktuelle Renteninformation</span>
-        </label>
-      </div>
+      <div className="space-y-6">
+        <h2 className="text-xl font-semibold">Renteninformation</h2>
+        
+        <div>
+          <label className="flex items-center gap-2 mb-4">
+            <input
+              type="checkbox"
+              checked={formData.hasCurrentPensionInfo}
+              onChange={(e) => setFormData({ ...formData, hasCurrentPensionInfo: e.target.checked })}
+              className="h-4 w-4"
+            />
+            <span className="text-sm font-medium">Hat aktuelle Renteninformation</span>
+          </label>
+        </div>
 
-      {formData.hasCurrentPensionInfo && (
+        {formData.hasCurrentPensionInfo ? (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -2955,150 +3214,328 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
             />
               <p className="text-xs text-gray-500 mt-1">Dieser Betrag fließt in die Kapitalbedarfs- und Vorsorgeberechnung ein.</p>
           </div>
+        </>
+      ) : (
+        <>
+          {/* Schätzungsfelder wenn keine Renteninfo vorhanden */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <p className="text-sm text-blue-800 mb-2">
+              <strong>💡 Schätzung basierend auf Rentenpunkten:</strong> Wir berechnen eine Schätzung deiner gesetzlichen Rente 
+              basierend auf deinem aktuellen Einkommen und deinen Arbeitsjahren.
+            </p>
+          </div>
 
-          <div className="border-t pt-6 mt-6">
-            <h3 className="text-lg font-semibold mb-3">Sozialabgaben (Schätzung)</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">KV-Beitrag (Arbeitnehmeranteil, %)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                    max="20"
-                  value={formData.kvBaseRate}
-                  onChange={(e) => setFormData({ ...formData, kvBaseRate: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                />
-                  <p className="text-xs text-gray-500 mt-1">Standard: 7,3% + Zusatzbeitrag (aktuell {formData.kvAdditionalRate}%).</p>
-              </div>
-              <div>
-                  <label className="block text-sm font-medium mb-2">Zusatzbeitrag Krankenversicherung (%)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                    max="5"
-                  value={formData.kvAdditionalRate}
-                  onChange={(e) => setFormData({ ...formData, kvAdditionalRate: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                />
-              </div>
-              <div>
-                  <label className="block text-sm font-medium mb-2">Pflegeversicherung (mit Kindern)</label>
-                  <div className="flex items-center gap-2">
+          {/* Hinweisbox */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <p className="text-sm text-blue-800">
+              <strong>💡 Hinweis:</strong> Bitte gib an, wie viele Jahre du bereits <strong>vollzeit gearbeitet und eingezahlt</strong> hast. 
+              Teilzeitjahre zählen entsprechend (z.B. 2 Jahre Teilzeit = 1 Jahr Vollzeit).
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Aktuelles Bruttoeinkommen (€/Jahr) *</label>
+              <input
+                type="number"
+                step="100"
+                min="0"
+                value={formData.currentGrossIncome}
+                onChange={(e) => setFormData({ ...formData, currentGrossIncome: e.target.value })}
+                onKeyDown={(e) => e.key === 'Enter' && nextStep()}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                placeholder="z.B. 50000"
+                required={!formData.hasCurrentPensionInfo}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Wird verwendet, um deine aktuellen Rentenpunkte zu berechnen (Verhältnis zu Jahresentgeltgrenze 51.944€ für 2026)
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Vollzeit-Arbeitsjahre (bereits gearbeitet) *</label>
+              <input
+                type="number"
+                min="0"
+                max="60"
+                step="0.5"
+                value={formData.pastWorkingYears}
+                onChange={(e) => setFormData({ ...formData, pastWorkingYears: e.target.value })}
+                onKeyDown={(e) => e.key === 'Enter' && nextStep()}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                placeholder="z.B. 15"
+                required={!formData.hasCurrentPensionInfo}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Anzahl Jahre, die du bereits vollzeit gearbeitet und in die Rentenversicherung eingezahlt hast
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Ausbildungsjahre (optional)</label>
+              <input
+                type="number"
+                min="0"
+                max="3"
+                step="0.5"
+                value={formData.trainingYears}
+                onChange={(e) => setFormData({ ...formData, trainingYears: e.target.value })}
+                onKeyDown={(e) => e.key === 'Enter' && nextStep()}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                placeholder="z.B. 3"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Anzahl Ausbildungsjahre (max. 3 Jahre, je 0,75 Punkte = max. 2,25 Punkte gesamt)
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Anzahl Kinder (optional)</label>
+              <input
+                type="number"
+                min="0"
+                max="10"
+                step="1"
+                value={formData.childrenYears}
+                onChange={(e) => setFormData({ ...formData, childrenYears: e.target.value })}
+                onKeyDown={(e) => e.key === 'Enter' && nextStep()}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                placeholder="z.B. 2"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Anzahl Kinder (für zusätzliche Rentenpunkte: 3 Punkte pro Kind, wenn nach 1992 geboren)
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Rentensteigerung (%)</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                max="10"
+                value={formData.pensionIncrease}
+                onChange={(e) => setFormData({ ...formData, pensionIncrease: e.target.value })}
+                onKeyDown={(e) => e.key === 'Enter' && nextStep()}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                placeholder="1.5"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Erwartete jährliche Rentensteigerung bis zum Rentenbeginn
+              </p>
+            </div>
+          </div>
+
+          {/* Anzeige der Schätzung */}
+          {(() => {
+            const estimatedPoints = estimatePensionPoints()
+            const estimatedGrossPension = calculateEstimatedPensionFromPoints(estimatedPoints)
+            const yearsToRetirement = calculateYearsToRetirement() || 0
+            const pensionIncrease = parseFloat(formData.pensionIncrease || '1.5') / 100
+            const estimatedFuturePension = estimatedGrossPension * Math.pow(1 + pensionIncrease, yearsToRetirement)
+            
+            if (estimatedPoints > 0 && estimatedGrossPension > 0) {
+              return (
+                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <h4 className="text-sm font-semibold text-green-900 mb-2">📊 Geschätzte Rente:</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <span className="text-gray-600">Geschätzte Rentenpunkte:</span>
+                      <span className="ml-2 font-semibold text-green-700">{estimatedPoints.toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Aktuelle Rente (heute):</span>
+                      <span className="ml-2 font-semibold text-green-700">
+                        {estimatedGrossPension.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/mtl.
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Rente zum Rentenbeginn:</span>
+                      <span className="ml-2 font-semibold text-green-700">
+                        {estimatedFuturePension.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/mtl.
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-600 mt-2">
+                    ⚠️ Dies ist eine Schätzung basierend auf deinen Angaben. Die tatsächliche Rente kann abweichen.
+                  </p>
+                </div>
+              )
+            }
+            return null
+          })()}
+
+          <div className="mt-4">
+            <label className="block text-sm font-medium mb-2">Gewünschte Sparrate (€/mtl.)</label>
+            <input
+              type="number"
+              min="0"
+              step="10"
+              value={formData.monthlySavings}
+              onChange={(e) => setFormData({ ...formData, monthlySavings: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                    nextStep()
+                }
+              }}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2"
+              placeholder="z. B. 200"
+            />
+              <p className="text-xs text-gray-500 mt-1">Dieser Betrag fließt in die Kapitalbedarfs- und Vorsorgeberechnung ein.</p>
+          </div>
+        </>
+        )}
+
+        <div className="border-t pt-6 mt-6">
+          <h3 className="text-lg font-semibold mb-3">Sozialabgaben (Schätzung)</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">KV-Beitrag (Arbeitnehmeranteil, %)</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                max="20"
+                value={formData.kvBaseRate}
+                onChange={(e) => setFormData({ ...formData, kvBaseRate: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+              />
+              <p className="text-xs text-gray-500 mt-1">Standard: 7,3% + Zusatzbeitrag (aktuell {formData.kvAdditionalRate}%).</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Zusatzbeitrag Krankenversicherung (%)</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                max="5"
+                value={formData.kvAdditionalRate}
+                onChange={(e) => setFormData({ ...formData, kvAdditionalRate: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Pflegeversicherung (mit Kindern)</label>
+              <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                      checked={formData.hasChildren}
+                  checked={formData.hasChildren}
                   onChange={(e) => setFormData({ ...formData, hasChildren: e.target.checked })}
                   className="h-4 w-4"
                 />
-                    <span className="text-sm">Kinder</span>
-                  </div>
-                  <div className="flex items-center gap-2">
+                <span className="text-sm">Kinder</span>
+              </div>
+              <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                      checked={formData.isCompulsoryInsured}
+                  checked={formData.isCompulsoryInsured}
                   onChange={(e) => setFormData({ ...formData, isCompulsoryInsured: e.target.checked })}
                   className="h-4 w-4"
                 />
-                    <span className="text-sm">Pflichtversichert in der KVdR</span>
-                  </div>
+                <span className="text-sm">Pflichtversichert in der KVdR</span>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-500 mt-3">Hinweis: Die Werte dienen der Hochrechnung der Sozialabgaben auf gesetzliche Rentenansprüche. Pflegeversicherung: {formData.hasChildren ? '3,6' : '4,2'} %. Anpassungen wirken bis zum Rentenbeginn, Zusatzbeiträge werden mit der angegebenen jährlichen Steigerung hochgerechnet.</p>
+        </div>
+
+        <div className="border-t pt-6 mt-6">
+          <h3 className="text-lg font-semibold mb-3">Steuerannahmen</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Steuerklasse</label>
+              <select
+                value={formData.taxFilingStatus}
+                onChange={(e) => setFormData({ ...formData, taxFilingStatus: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+              >
+                <option value="single">Alleinstehend</option>
+                <option value="married">Verheiratet / Zusammenveranlagung</option>
+                <option value="widowed">Verwitwet</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Grundfreibetrag (€/Jahr)</label>
+              <input
+                type="number"
+                step="1"
+                min="0"
+                value={formData.taxFreeAmount}
+                onChange={(e) => setFormData({ ...formData, taxFreeAmount: e.target.value })}
+                onKeyDown={(e) => e.key === 'Enter' && nextStep()}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                placeholder="12096"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">jährliche Erhöhung Grundfreibetrag (%)</label>
+              <input
+                type="number"
+                step="0.1"
+                value={formData.taxIncreaseRate}
+                onChange={(e) => setFormData({ ...formData, taxIncreaseRate: e.target.value })}
+                onKeyDown={(e) => e.key === 'Enter' && nextStep()}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Steuerpflichtiger Rentenanteil (%)</label>
+              {(() => {
+                const firstRetirementYear = calculateFirstRetirementYear()
+                const computedTaxableShare = firstRetirementYear 
+                  ? calculateTaxableShareForRetirementYear(firstRetirementYear)
+                  : 84.0
+                
+                return (
+                  <>
+                    <div className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-50 text-gray-700">
+                      {computedTaxableShare.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      {firstRetirementYear 
+                        ? `Automatisch berechnet für Rentenbeginn ${firstRetirementYear}: ${computedTaxableShare.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} % (Start: 84% in 2025, steigt jährlich +0,5% bis max. 100% in 2058).`
+                        : 'Berechnet automatisch basierend auf Rentenbeginn (Start: 84% in 2025, steigt jährlich +0,5% bis max. 100% in 2058).'
+                      }
+                    </p>
+                  </>
+                )
+              })()}
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-500 mt-3">Hinweis: Der Grundfreibetrag wird bis zum Rentenbeginn mit der angegebenen Steigerung fortgeschrieben. Der steuerpflichtige Rentenanteil steigt gemäß gesetzlicher Vorgabe (+0,5 % p. a.) an.</p>
+        </div>
+
+        <div className="border-t pt-4 mt-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h3 className="font-semibold text-blue-900 mb-3">Berechneter Rentenwert zur Rente</h3>
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Rente mit Steigerung zur Rente</p>
+              <p className="text-2xl font-bold text-green-700">
+                {futureValue !== null ? futureValue.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0,00'} €
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Basierend auf {formData.pensionAtRetirement} €/mtl. mit {formData.pensionIncrease || '0'}% Steigerung über {yearsToRetirement} Jahre
+              </p>
+              {netFuture !== null && futureValue !== null && (
+                <div className="mt-3 space-y-1">
+                  <p className="text-sm text-gray-600">Geschätzte Netto-Rente nach Sozialabgaben</p>
+                  <p className="text-lg font-semibold text-gray-800">
+                    {netFuture.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Abzüge (KV/PV) geschätzt: -{(futureValue - netFuture).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                  </p>
                 </div>
-            </div>
-
-              <p className="text-xs text-gray-500 mt-3">Hinweis: Die Werte dienen der Hochrechnung der Sozialabgaben auf gesetzliche Rentenansprüche. Pflegeversicherung: {formData.hasChildren ? '3,6' : '4,2'} %. Anpassungen wirken bis zum Rentenbeginn, Zusatzbeiträge werden mit der angegebenen jährlichen Steigerung hochgerechnet.</p>
-          </div>
-
-          <div className="border-t pt-6 mt-6">
-            <h3 className="text-lg font-semibold mb-3">Steuerannahmen</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Steuerklasse</label>
-                <select
-                  value={formData.taxFilingStatus}
-                  onChange={(e) => setFormData({ ...formData, taxFilingStatus: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                >
-                  <option value="single">Alleinstehend</option>
-                  <option value="married">Verheiratet / Zusammenveranlagung</option>
-                  <option value="widowed">Verwitwet</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Grundfreibetrag (€/Jahr)</label>
-                <input
-                  type="number"
-                  step="1"
-                  min="0"
-                  value={formData.taxFreeAmount}
-                  onChange={(e) => setFormData({ ...formData, taxFreeAmount: e.target.value })}
-                    onKeyDown={(e) => e.key === 'Enter' && nextStep()}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                  placeholder="12096"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">jährliche Erhöhung Grundfreibetrag (%)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={formData.taxIncreaseRate}
-                  onChange={(e) => setFormData({ ...formData, taxIncreaseRate: e.target.value })}
-                    onKeyDown={(e) => e.key === 'Enter' && nextStep()}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                  placeholder="0"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Steuerpflichtiger Rentenanteil (%)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="100"
-                  value={formData.taxFreePercentage}
-                    onChange={(e) => setFormData({ ...formData, taxFreePercentage: e.target.value })}
-                    onKeyDown={(e) => e.key === 'Enter' && nextStep()}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                  placeholder="83.5"
-                />
-                  <p className="text-[11px] text-gray-500 mt-1">Steuerpflichtiger Anteil in % (2025: 83,5 %, steigt jährlich +0,5 % bis 100 %).</p>
-              </div>
-            </div>
-
-              <p className="text-xs text-gray-500 mt-3">Hinweis: Der Grundfreibetrag wird bis zum Rentenbeginn mit der angegebenen Steigerung fortgeschrieben. Der steuerpflichtige Rentenanteil steigt gemäß gesetzlicher Vorgabe (+0,5 % p. a.) an.</p>
-          </div>
-
-          <div className="border-t pt-4 mt-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="font-semibold text-blue-900 mb-3">Berechneter Rentenwert zur Rente</h3>
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Rente mit Steigerung zur Rente</p>
-                <p className="text-2xl font-bold text-green-700">
-                  {futureValue !== null ? futureValue.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0,00'} €
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Basierend auf {formData.pensionAtRetirement} €/mtl. mit {formData.pensionIncrease || '0'}% Steigerung über {yearsToRetirement} Jahre
-                </p>
-                {netFuture !== null && futureValue !== null && (
-                  <div className="mt-3 space-y-1">
-                    <p className="text-sm text-gray-600">Geschätzte Netto-Rente nach Sozialabgaben</p>
-                    <p className="text-lg font-semibold text-gray-800">
-                      {netFuture.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Abzüge (KV/PV) geschätzt: -{(futureValue - netFuture).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                    </p>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </div>
-        </>
-      )}
-    </div>
-  )
+        </div>
+      </div>
+    )
   }
   // Schritt 3: Gesamtübersicht mit Diagramm
   const renderStep3 = () => {
@@ -3124,11 +3561,6 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
     const manualProvisionDisplay = showInCurrentPurchasingPower ? provisionData.manualCurrent : provisionData.manualFuture
     const storedSavingsDisplay = showInCurrentPurchasingPower ? provisionData.savingsCurrent : provisionData.savingsFuture
     const projectedSavingsDisplay = showInCurrentPurchasingPower ? savingsProjection.monthlyPensionCurrent : savingsProjection.monthlyPensionFuture
-
-    const formatEuro = (value?: number) => (value ?? 0).toLocaleString('de-DE', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
 
     const convertToDisplay = (futureAmount: number) => {
       if (showInCurrentPurchasingPower && yearsToRetirementValue > 0) {
@@ -3908,8 +4340,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                       const isBetrieblicheAltersvorsorge = item.type === 'Betriebliche Altersvorsorge'
                       const currentYear = new Date().getFullYear()
                       const retirementYearEstimate = currentYear + yearsToRetirementValue
-                      const taxableShareSteps = Math.max(0, retirementYearEstimate - 2025)
-                      const taxableShareForEntry = Math.round(Math.min(100, 83.5 + taxableShareSteps * 0.5) * 10) / 10
+                      const taxableShareForEntry = Math.round(calculateTaxableShareForRetirementYear(retirementYearEstimate) * 10) / 10
                       const taxableExampleMonthly = Math.round(item.amount * (taxableShareForEntry / 100) * 100) / 100
                       const provisionIncomeTaxFuture =
                         provisionTaxBreakdown.incomeTaxByProvision[item.id] ?? 0
@@ -4455,8 +4886,14 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                   <span className="text-xl font-bold text-green-700">{capitalEquivalentDisplayFormatted} €</span>
                 </div>
                 <p className="text-xs text-gray-500 mb-2">
-                  {formData.monthlySavings} €/mtl. mit {parseFloat(formData.returnRate || '0').toFixed(1)}% Rendite über {yearsToRetirementValue} Jahre
+                  {formData.monthlySavings} €/mtl. mit {parseFloat(formData.returnRate || '0').toFixed(1)}% Rendite über {formatYears(yearsToRetirementValue)}
                 </p>
+                <button
+                  onClick={() => setShowTaxDetailsModal(true)}
+                  className="text-xs text-blue-600 hover:text-blue-800 underline mb-2"
+                >
+                  Steuerdetails anpassen
+                </button>
                 <div className="mt-3 pt-3 border-t">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-medium text-gray-700">Schließt die Rentenlücke zu:</span>
@@ -4653,7 +5090,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                       <div>
                         <p className="text-blue-900 font-medium">4. Zusätzliche Rente aus neuer Sparrate</p>
                         <p className="text-xs text-blue-900/70">
-                          {formData.monthlySavings} € · {parseFloat(formData.returnRate || '0').toFixed(1)} % Rendite · {yearsToRetirementValue} Jahre
+                          {formData.monthlySavings} € · {parseFloat(formData.returnRate || '0').toFixed(1)} % Rendite · {formatYears(yearsToRetirementValue)}
                         </p>
                     </div>
                       <span className="text-lg font-semibold text-blue-900">{formatEuro(projectedSavingsDisplay)} €</span>
@@ -4697,11 +5134,11 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                     <span className="text-lg font-semibold text-blue-700">{formatEuro(remainingCapitalRequirementDisplay)} €</span>
                   </div>
                   <p className="text-xs text-gray-500 leading-relaxed">
-                    Um eine monatliche Lücke von {formatEuro(savingsCoverage.gapBefore)} € zu schließen, wären bei
-                    {` ${parseFloat(formData.returnRate || '0').toFixed(1)} %`} Rendite bis zum Rentenbeginn zusätzliche Entnahmen von ca.
-                    {` ${formatEuro(savingsCoverage.monthlyPensionFuture)} €`} erforderlich. Mit der aktuellen Sparrate erreichst du
+                    Um die verbleibende monatliche Lücke von {formatEuro(remainingGapDisplay)} € zu schließen, wäre bei
+                    {` ${parseFloat(formData.withdrawalRate || '0').toFixed(1)} %`} Entnahmerendite ein Kapital von
+                    {` ${formatEuro(remainingCapitalRequirementDisplay)} €`} erforderlich. Mit der aktuellen Sparrate erreichst du
                     {` ${savingsCoverage.coversPercent.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`}
-                    Deckung.
+                    Deckung der ursprünglichen Lücke.
                   </p>
                 </div>
               </div>
@@ -4718,6 +5155,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
       </div>
     )
   }
+
   const renderStep4 = () => {
     const savingsCoverage = calculateSavingsCoverage()
     const savingsProjection = calculateSavingsProjection()
@@ -4754,8 +5192,6 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
     const remainingStatutorySlots = Math.max(0, 3 - statutoryAttachments.length)
     const remainingPrivateSlots = Math.max(0, 3 - privateAttachments.length)
     const calculationSnapshot = buildCalculationSnapshot()
-    const formatEuro = (value?: number | null) =>
-      ((value ?? 0) as number).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     const stringifyTemplateValue = (value: unknown): string => {
       if (value === null || value === undefined || value === '') {
         return '–'
@@ -5096,7 +5532,79 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
           </div>
         </div>
 
-        <div className="border rounded-xl p-6 bg-white shadow-sm space-y-4">
+        {/* DISC Personality-Based Views */}
+        <div className="border rounded-xl p-6 bg-white shadow-sm">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              Persönliche Rentenansicht
+            </h3>
+            <p className="text-sm text-gray-600">
+              Wähle deine bevorzugte Darstellung der Rentenberechnung
+            </p>
+          </div>
+          {(() => {
+            // Berechne requiredSavings für die DISC-Ansichten
+            const requiredSavingsForViews = calculateRequiredSavingsForGap()
+            const provisionTotalsForViews = calculateProvisionTotals()
+            const provisionTaxBreakdownForViews = calculateProvisionTaxBreakdown()
+            const manualCapitalTaxFutureForViews = provisionTaxBreakdownForViews.totalPrivateTaxMonthly
+            const bavThreshold = 187.25
+            const bavKvRate = 0.171
+            const bavPvRate = formData.hasChildren ? 0.036 : 0.042
+            const totalBavFuture = provisions
+              .filter((p) => p.type === 'Betriebliche Altersvorsorge')
+              .reduce((sum, p) => sum + (parseFloat(String(p.amount || '0')) || 0), 0)
+            const privateSvDeductionFuture = Math.max(0, totalBavFuture - bavThreshold) * (bavKvRate + bavPvRate)
+            const privateNetFutureForViews = Math.max(
+              0,
+              (provisionTotalsForViews.manualFuture || 0) + (provisionTotalsForViews.savingsFuture || 0) - privateSvDeductionFuture - manualCapitalTaxFutureForViews
+            )
+            
+            return (
+              <RetirementCalculator 
+                calculationData={{
+                  gaps: {
+                    before: savingsCoverage.gapBefore || 0,
+                    after: savingsCoverage.gapAfter || 0,
+                    coveragePercent: savingsCoverage.coversPercent || 0,
+                  },
+                  statutory: {
+                    netFuture: statutoryNetFuture || 0,
+                  },
+                  privateExisting: {
+                    netFuture: privateNetFutureForViews,
+                  },
+                  requiredSavings: {
+                    monthlySavings: requiredSavingsForViews.monthlySavings || 0,
+                    netFuture: requiredSavingsForViews.netFuture || 0,
+                    netCurrent: requiredSavingsForViews.netCurrent || 0,
+                  },
+                  targetPensionFuture: targetPensionFuture || 0,
+                  yearsToRetirement: yearsToRetirement || 0,
+                  yearsInRetirement: (() => {
+                    const retirementAge = parseInt(formData.desiredRetirementAge || '67')
+                    const lifeExpectancy = parseInt(formData.lifeExpectancy || '90')
+                    return Math.max(0, lifeExpectancy - retirementAge)
+                  })(),
+                  capitalNeeded: capitalRequirementData.capitalRequirement || capitalRequirementData.baseCapitalRequirement || 0,
+                  retirementAge: parseInt(formData.desiredRetirementAge || '67'),
+                  lifeExpectancy: parseInt(formData.lifeExpectancy || '90'),
+                  inflationRate: parseFloat(formData.inflationRate || '2.0') / 100,
+                  returnRate: parseFloat(formData.returnRate || '4.0') / 100,
+                }}
+                onActionClick={() => {
+                  // Scroll zur Empfehlungs-Sektion
+                  const recommendationSection = document.querySelector('[data-section="recommendation"]')
+                  if (recommendationSection) {
+                    recommendationSection.scrollIntoView({ behavior: 'smooth' })
+                  }
+                }}
+              />
+            )
+          })()}
+        </div>
+
+        <div className="border rounded-xl p-6 bg-white shadow-sm space-y-4" data-section="recommendation">
           <div className="flex items-center gap-2">
             <span className="text-xl">✨</span>
             <h3 className="text-lg font-semibold text-gray-800">Unsere Empfehlung</h3>
@@ -5333,13 +5841,21 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
               Weiter →
             </button>
           ) : (
-            <button
-              onClick={handleSave}
-              disabled={saving || !formData.birthDate || !formData.desiredRetirementAge || !formData.targetPensionNetto}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? '💾 Speichere...' : '💾 Speichern'}
-            </button>
+            <>
+              <button
+                onClick={handleSave}
+                disabled={saving || !formData.birthDate || !formData.desiredRetirementAge || !formData.targetPensionNetto}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? '💾 Speichere...' : '💾 Speichern & Ergebnis anzeigen'}
+              </button>
+              <a
+                href={`/clients/${initialConcept.clientId}/retirement-concept/${initialConcept.id}/ergebnis`}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                📊 Ergebnis anzeigen
+              </a>
+            </>
           )}
           <a
             href={`/clients/${initialConcept.clientId}`}
@@ -5349,6 +5865,119 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
           </a>
         </div>
       </div>
+
+      {/* Modal für Steuerdetails */}
+      {showTaxDetailsModal && (() => {
+        const currentProjection = calculateSavingsProjection()
+        const defaultAcquisitionCosts = formData.acquisitionCosts || currentProjection.totalPaidIn.toFixed(2)
+        
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Steuerdetails für Sparrate</h2>
+                <button
+                  onClick={() => setShowTaxDetailsModal(false)}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Teilfreistellung (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    value={formData.partialExemption}
+                    onChange={(e) => setFormData({ ...formData, partialExemption: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                    placeholder="30.0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Standard: 30% bei Aktienfonds/ETFs (Investmentsteuergesetz 2018). 15% bei Mischfonds, 60-80% bei Immobilienfonds.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Anschaffungskosten (€)
+                  </label>
+                  <input
+                    type="number"
+                    step="100"
+                    min="0"
+                    value={defaultAcquisitionCosts}
+                    onChange={(e) => setFormData({ ...formData, acquisitionCosts: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                    placeholder="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Automatisch berechnet: {formatEuro(currentProjection.totalPaidIn)} € (eingezahltes Kapital). Kann manuell angepasst werden.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Kapitalertragsteuer-Satz (%)
+                  </label>
+                <input
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  max="100"
+                  value={formData.capitalGainsTaxRate}
+                  onChange={(e) => setFormData({ ...formData, capitalGainsTaxRate: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  placeholder="26.375"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                    Standard: 26,375% (25% Abgeltungssteuer + 5,5% Soli). Kann bei anderen Steuersätzen angepasst werden.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Jährlicher Steuerfreibetrag (€)
+                  </label>
+                <input
+                  type="number"
+                  step="100"
+                  min="0"
+                  value={formData.capitalGainsAllowance}
+                  onChange={(e) => setFormData({ ...formData, capitalGainsAllowance: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  placeholder="1000"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                    Standard: 1.000 € pro Jahr (Sparer-Pauschbetrag). Wird jährlich von den steuerpflichtigen Erträgen abgezogen.
+                  </p>
+                </div>
+              </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setShowTaxDetailsModal(false)}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={() => setShowTaxDetailsModal(false)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Speichern
+              </button>
+            </div>
+          </div>
+        </div>
+        )
+      })()}
     </div>
   )
 }
