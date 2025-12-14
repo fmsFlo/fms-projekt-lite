@@ -28,26 +28,55 @@ export async function POST(req: Request) {
           signal: AbortSignal.timeout(10000) // 10 Sekunden Timeout
         })
         
-        if (response.ok) {
-          const data = await response.json()
-          console.log('📥 Make Raw Response:', JSON.stringify(data, null, 2))
-          
-          // Erwarte Format: { results: [...] } oder { clients: [...] }
-          // Manchmal gibt Make ein Array direkt zurück
-          if (Array.isArray(data)) {
-            console.log('✅ Make gibt Array direkt zurück')
-            return NextResponse.json({ results: data })
+        // Prüfe Status Code (200-299 sind OK, 202 Accepted bedeutet asynchroner Prozess)
+        const status = response.status
+        const contentType = response.headers.get('content-type') || ''
+        
+        console.log('📥 Make Response Status:', status)
+        console.log('📥 Make Content-Type:', contentType)
+        
+        // HTTP 202 Accepted bedeutet, dass die Anfrage akzeptiert wurde, aber noch verarbeitet wird
+        // In diesem Fall gibt es oft keine JSON-Antwort
+        if (status === 202) {
+          console.log('⚠️ Make gibt 202 Accepted zurück - asynchroner Prozess, verwende Fallback')
+          // Fallback zu Mock-Daten
+        } else if (response.ok && status >= 200 && status < 300) {
+          // Prüfe ob Content-Type JSON ist
+          if (contentType.includes('application/json')) {
+            try {
+              const data = await response.json()
+              console.log('📥 Make Raw Response:', JSON.stringify(data, null, 2))
+              
+              // Erwarte Format: { results: [...] } oder { clients: [...] }
+              // Manchmal gibt Make ein Array direkt zurück
+              if (Array.isArray(data)) {
+                console.log('✅ Make gibt Array direkt zurück')
+                return NextResponse.json({ results: data })
+              }
+              
+              if (data.results) {
+                console.log('✅ Make gibt {results: [...]} zurück')
+                return NextResponse.json({ results: data.results })
+              }
+              
+              console.log('⚠️ Unbekanntes Format von Make:', data)
+              return NextResponse.json(data)
+            } catch (jsonError: any) {
+              console.error('❌ JSON Parse Error:', jsonError.message)
+              const text = await response.text()
+              console.error('❌ Response Text:', text.substring(0, 200))
+              // Fallback zu Mock-Daten
+            }
+          } else {
+            // Nicht JSON Response
+            const text = await response.text()
+            console.log('⚠️ Make gibt nicht-JSON zurück:', text.substring(0, 200))
+            // Fallback zu Mock-Daten
           }
-          
-          if (data.results) {
-            console.log('✅ Make gibt {results: [...]} zurück')
-            return NextResponse.json({ results: data.results })
-          }
-          
-          console.log('⚠️ Unbekanntes Format von Make:', data)
-          return NextResponse.json(data)
         } else {
-          console.error('❌ Make Response nicht OK:', response.status, await response.text())
+          const errorText = await response.text().catch(() => 'Keine Fehlermeldung')
+          console.error('❌ Make Response nicht OK:', status, errorText.substring(0, 200))
+          // Fallback zu Mock-Daten
         }
       } catch (makeError) {
         console.error('Make API Error:', makeError)
