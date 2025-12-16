@@ -80,14 +80,23 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
         chromium.setGraphicsMode(false)
       }
       
+      // executablePath kann eine Property oder eine Funktion sein, je nach Version
+      let executablePath: string
+      if (typeof chromium.executablePath === 'function') {
+        executablePath = await chromium.executablePath()
+      } else {
+        executablePath = chromium.executablePath as string
+      }
+      
       browser = await puppeteerCore.default.launch({
         args: chromium.args,
         defaultViewport: chromium.defaultViewport,
-        executablePath: await chromium.executablePath(),
+        executablePath: executablePath,
         headless: chromium.headless,
       })
     } catch (error: any) {
       console.error('❌ Fehler beim Laden von @sparticuz/chromium:', error.message)
+      console.error('❌ Error Stack:', error.stack)
       throw new Error(`PDF-Generierung fehlgeschlagen: ${error.message}. Bitte prüfen Sie die Netlify-Konfiguration.`)
     }
   } else {
