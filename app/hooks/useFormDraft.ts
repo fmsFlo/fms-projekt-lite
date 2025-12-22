@@ -9,9 +9,11 @@ export function useFormDraft<T>(
   useEffect(() => {
     const saved = localStorage.getItem(`draft_${formId}`);
     if (saved) {
-      const data = JSON.parse(saved);
-      return data; // Gib Daten zurück für reset()
+      // Daten werden geladen, aber nicht über return zurückgegeben
+      // Der Hook gibt nur clearDraft zurück
+      // Die Daten müssen vom aufrufenden Component selbst geladen werden
     }
+    // Kein return - useEffect gibt nichts zurück (oder undefined)
   }, [formId]);
 
   // Bei Änderungen: Speichere Draft
