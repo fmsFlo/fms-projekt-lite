@@ -82,8 +82,23 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
     try {
       console.log('[PDF] Netlify-Umgebung erkannt, verwende @sparticuz/chromium')
       
-      // Statischer Import für @sparticuz/chromium
-      const chromium = require('@sparticuz/chromium')
+      // Dynamischer Import für @sparticuz/chromium (ES Modules)
+      let chromium: any
+      try {
+        chromium = await import('@sparticuz/chromium')
+        // Wenn es ein default export ist, verwende default
+        if (chromium.default) {
+          chromium = chromium.default
+        }
+      } catch (importError: any) {
+        console.error('[PDF] Fehler beim Import von @sparticuz/chromium:', importError.message)
+        // Fallback: Versuche require() (für CommonJS)
+        try {
+          chromium = require('@sparticuz/chromium')
+        } catch (requireError: any) {
+          throw new Error(`Kann @sparticuz/chromium weder importieren noch require: ${importError.message} / ${requireError.message}`)
+        }
+      }
       
       // Chromium für Netlify konfigurieren
       if (chromium.setGraphicsMode && typeof chromium.setGraphicsMode === 'function') {
@@ -99,6 +114,7 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
       }
       
       console.log('[PDF] Chromium executablePath:', executablePath ? 'gefunden' : 'nicht gefunden')
+      console.log('[PDF] Chromium args:', chromium.args?.length || 0, 'args')
       
       if (!executablePath) {
         throw new Error('Chromium executablePath konnte nicht ermittelt werden. Bitte stellen Sie sicher, dass @sparticuz/chromium korrekt installiert ist.')
@@ -119,7 +135,8 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
         NETLIFY: process.env.NETLIFY,
         AWS_LAMBDA: process.env.AWS_LAMBDA_FUNCTION_NAME,
         NETLIFY_DEV: process.env.NETLIFY_DEV,
-        VERCEL: process.env.VERCEL
+        VERCEL: process.env.VERCEL,
+        NODE_ENV: process.env.NODE_ENV
       })
       throw new Error(`PDF-Generierung fehlgeschlagen: An \`executablePath\` or \`channel\` must be specified for \`puppeteer-core\`. Bitte prüfen Sie die Netlify-Konfiguration.`)
     }
