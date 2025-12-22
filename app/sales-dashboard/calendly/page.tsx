@@ -417,8 +417,27 @@ export default function CalendlyDashboardPage() {
       const response = await fetch('/api/dashboard/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'calendly', daysBack })
+        body: JSON.stringify({ type: 'calendly', daysBack, daysForward: 90 })
       })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('[CalendlyDashboard] Sync-Fehler Response:', errorText)
+        try {
+          const errorJson = JSON.parse(errorText)
+          setSyncMessage(`❌ Fehler: ${errorJson.error || 'Unbekannter Fehler'}`)
+        } catch {
+          // Response ist HTML (z.B. 504 Timeout Page)
+          if (response.status === 504) {
+            setSyncMessage('❌ Timeout: Die Synchronisation dauert zu lange. Bitte versuchen Sie es mit einem kürzeren Zeitraum (z.B. 3 Monate statt 6).')
+          } else {
+            setSyncMessage(`❌ Fehler: ${response.status} ${response.statusText}`)
+          }
+        }
+        setTimeout(() => setSyncMessage(''), 10000)
+        return
+      }
+      
       const result = await response.json()
       setSyncMessage(`✅ ${result.message || `Calendly-Daten erfolgreich synchronisiert! ${result.syncedCount || 0} Events`}`)
       setTimeout(() => setSyncMessage(''), 8000)
@@ -426,7 +445,7 @@ export default function CalendlyDashboardPage() {
     } catch (error: any) {
       console.error('[CalendlyDashboard] Fehler beim Synchronisieren:', error)
       setSyncMessage(`❌ Fehler beim Synchronisieren: ${error.message || 'Unbekannter Fehler'}`)
-      setTimeout(() => setSyncMessage(''), 8000)
+      setTimeout(() => setSyncMessage(''), 10000)
     } finally {
       setIsSyncing(false)
     }
