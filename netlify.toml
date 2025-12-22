@@ -10,6 +10,15 @@
   package = "@netlify/plugin-nextjs"
 
 [functions]
-  external_node_modules = ["@prisma/client", ".prisma/client", "@neondatabase/serverless", "bcryptjs", "@sparticuz/chromium", "puppeteer-core"]
   node_bundler = "esbuild"
+  external_node_modules = ["@prisma/client", ".prisma/client", "@neondatabase/serverless", "bcryptjs", "@sparticuz/chromium", "puppeteer-core"]
+
+[build]
+  functions = ".netlify/functions"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
 

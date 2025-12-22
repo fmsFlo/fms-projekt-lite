@@ -7,7 +7,7 @@ type ServiceGroup = { id: string; label: string; slugs: string[]; templates: Tem
 type ServiceSuggestion = { id?: string; name: string; email?: string; address?: string; category?: string }
 
 const SERVICE_CATEGORY = 'Kundenverwaltung (Kündigungen, Beitragsfreistellungen etc.)'
-const HONORAR_CATEGORY = 'Honorarberatung'
+const HONORAR_CATEGORY = 'Honorar Beratung'
 
 const CATEGORY_LABELS: Record<string, string> = {
   [HONORAR_CATEGORY]: 'Honorarberatung',
@@ -106,12 +106,19 @@ export default function ContractCreator({
   }, [])
 
   const categoryOptions = useMemo(() => {
+    console.log('[ContractCreator] Templates:', templates.length)
+    console.log('[ContractCreator] Template categories:', templates.map(t => ({ name: t.name, category: t.category })))
+    
     const discovered = new Set<string>()
     templates.forEach((tpl) => {
       if (tpl.category && tpl.category.trim().length > 0) {
         discovered.add(tpl.category)
       }
     })
+
+    console.log('[ContractCreator] Discovered categories:', Array.from(discovered))
+    console.log('[ContractCreator] HONORAR_CATEGORY:', HONORAR_CATEGORY)
+    console.log('[ContractCreator] Has HONORAR_CATEGORY?', discovered.has(HONORAR_CATEGORY))
 
     const ordered: string[] = []
     if (discovered.has(HONORAR_CATEGORY)) {
@@ -135,19 +142,27 @@ export default function ContractCreator({
 
     const filtered = ordered.filter((value, index, self) => self.indexOf(value) === index)
     
+    console.log('[ContractCreator] Filtered categories before visibility filter:', filtered)
+    console.log('[ContractCreator] visibleCategories:', visibleCategories)
+    
     // Filtere basierend auf sichtbaren Kategorien
     if (visibleCategories !== null) {
       // null = Admin sieht alle, [] = Berater sieht keine Honorarverträge
       if (visibleCategories.length === 0) {
         // Leeres Array = keine Honorarverträge
-        return filtered.filter(cat => cat !== HONORAR_CATEGORY)
+        const result = filtered.filter(cat => cat !== HONORAR_CATEGORY)
+        console.log('[ContractCreator] After filtering (empty array):', result)
+        return result
       } else {
         // Spezifische Kategorien ausgewählt
-        return filtered.filter(cat => visibleCategories.includes(cat))
+        const result = filtered.filter(cat => visibleCategories.includes(cat))
+        console.log('[ContractCreator] After filtering (specific categories):', result)
+        return result
       }
     }
     
     // Admin oder keine Einschränkung = alle Kategorien
+    console.log('[ContractCreator] Final categories (no filter):', filtered)
     return filtered
   }, [templates, visibleCategories])
 
@@ -211,12 +226,20 @@ export default function ContractCreator({
   }, [selectedCategory, selectedServiceGroup, serviceGroups])
 
   const displayedTemplates = useMemo(() => {
-    if (!selectedCategory) return [] as Template[]
+    if (!selectedCategory) {
+      console.log('[ContractCreator] No selectedCategory')
+      return [] as Template[]
+    }
     if (selectedCategory === SERVICE_CATEGORY) {
       const group = serviceGroups.find((g) => g.id === selectedServiceGroup)
-      return group ? group.templates : []
+      const result = group ? group.templates : []
+      console.log('[ContractCreator] SERVICE_CATEGORY templates:', result.length)
+      return result
     }
-    return templates.filter((tpl) => (tpl.category || '') === selectedCategory)
+    const result = templates.filter((tpl) => (tpl.category || '') === selectedCategory)
+    console.log('[ContractCreator] Displayed templates for category', selectedCategory, ':', result.length)
+    console.log('[ContractCreator] Template names:', result.map(t => t.name))
+    return result
   }, [selectedCategory, selectedServiceGroup, serviceGroups, templates])
 
   useEffect(() => {
