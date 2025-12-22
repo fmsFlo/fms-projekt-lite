@@ -6,7 +6,7 @@ async function addMissingFields(tableName, fields) {
   try {
     // Prüfe welche Felder fehlen
     const fieldNames = fields.map(f => `'${f.name}'`).join(',')
-    const existingColumns = await prisma.$executeRawUnsafe(`
+    const existingColumns = await prisma.$queryRawUnsafe(`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_schema = 'public' 
