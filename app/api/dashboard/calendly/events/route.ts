@@ -88,6 +88,12 @@ export async function GET(req: NextRequest) {
 
     // Execute
     const results = await dbAll(query, params);
+    console.log(`[Calendly Events API] Query: ${query.substring(0, 100)}...`);
+    console.log(`[Calendly Events API] Params:`, params);
+    console.log(`[Calendly Events API] Results count:`, results?.length || 0);
+    if (results && results.length > 0) {
+      console.log(`[Calendly Events API] First result:`, JSON.stringify(results[0], null, 2));
+    }
     return NextResponse.json(results);
 
   } catch (err: any) {

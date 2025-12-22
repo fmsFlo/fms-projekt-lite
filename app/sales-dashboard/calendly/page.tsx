@@ -128,8 +128,17 @@ export default function CalendlyDashboardPage() {
     setLoading(true)
     try {
       const response = await fetch('/api/dashboard/calendly/events?limit=10000')
-      if (!response.ok) throw new Error('Failed to fetch events')
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('[CalendlyDashboard] API Error:', response.status, errorText)
+        throw new Error(`Failed to fetch events: ${response.status}`)
+      }
       const eventsData = await response.json()
+      console.log('[CalendlyDashboard] API Response:', {
+        isArray: Array.isArray(eventsData),
+        length: eventsData?.length || 0,
+        firstItem: eventsData?.[0] || null
+      })
       setAllEvents(eventsData || [])
       initializeFilters(eventsData || [])
     } catch (error: any) {
