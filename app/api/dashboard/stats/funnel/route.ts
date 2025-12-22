@@ -35,10 +35,16 @@ export async function GET(req: NextRequest) {
       params.push(endDate)
     }
     
-    // 1. Leads erstellt
-    const leadsQuery = `SELECT COUNT(DISTINCT id) as count FROM leads WHERE 1=1 ${dateFilter}`
-    const leadsResult = await dbGet(leadsQuery, params)
-    const leadsCreated = leadsResult?.count || 0
+    // 1. Leads erstellt - falls leads Tabelle existiert
+    let leadsCreated = 0
+    try {
+      const leadsQuery = `SELECT COUNT(DISTINCT id) as count FROM leads WHERE 1=1 ${dateFilter}`
+      const leadsResult = await dbGet(leadsQuery, params)
+      leadsCreated = leadsResult?.count || 0
+    } catch (e) {
+      // leads Tabelle existiert möglicherweise nicht - verwende 0
+      console.log('[Funnel] leads Tabelle nicht verfügbar, verwende 0')
+    }
     
     // 2. Kontaktiert (mindestens 1 Call) - UNIQUE lead_ids
     let contactedParams = [...params]

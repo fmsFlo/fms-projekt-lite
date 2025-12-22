@@ -18,7 +18,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Nur Administratoren können synchronisieren' }, { status: 403 })
     }
 
-    const body = await req.json()
+    let body: any = {}
+    try {
+      const text = await req.text()
+      if (text) {
+        body = JSON.parse(text)
+      }
+    } catch (e) {
+      // Body ist leer oder kein JSON - verwende Defaults
+      console.log('[Sync] Kein Body oder kein JSON, verwende Defaults')
+    }
     const { type, daysBack = 365, daysForward = 90 } = body
 
     // Wenn type 'calendly' ist, rufe Calendly Sync auf
