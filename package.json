@@ -7,6 +7,8 @@
     "prebuild": "echo \"Skipping Prisma db push on Vercel build\"",
     "build": "next build",
     "postinstall": "prisma generate",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:check": "ts-node scripts/ensure-migrations.ts",
     "start": "next start",
     "lint": "next lint",
     "prisma:generate": "prisma generate",

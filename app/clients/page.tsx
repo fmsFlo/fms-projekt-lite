@@ -7,7 +7,31 @@ export const runtime = 'nodejs'
 export default async function ClientsPage() {
   // Auth wird von middleware.ts übernommen
   try {
-    const clients = await prisma.client.findMany({ orderBy: { createdAt: 'desc' } })
+    // Lade Clients - verwende try-catch für fehlende Felder
+    let clients
+    try {
+      clients = await prisma.client.findMany({ orderBy: { createdAt: 'desc' } })
+    } catch (schemaError: any) {
+      // Falls Felder fehlen, lade ohne die optionalen Felder
+      if (schemaError.message?.includes('targetPensionNetto') || schemaError.message?.includes('does not exist')) {
+        console.warn('⚠️ Einige Felder fehlen in der Datenbank, füge sie hinzu...')
+        // Versuche die Felder hinzuzufügen
+        try {
+          await prisma.$executeRawUnsafe(`
+            ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "targetPensionNetto" DOUBLE PRECISION;
+            ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "desiredRetirementAge" INTEGER;
+            ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "monthlySavings" DOUBLE PRECISION;
+          `)
+          // Versuche erneut zu laden
+          clients = await prisma.client.findMany({ orderBy: { createdAt: 'desc' } })
+        } catch (addError: any) {
+          console.error('❌ Fehler beim Hinzufügen der Felder:', addError.message)
+          throw schemaError
+        }
+      } else {
+        throw schemaError
+      }
+    }
     
     // Serialisiere die Daten für Client Component (Date-Objekte zu Strings)
     const serializedClients = clients.map(client => ({

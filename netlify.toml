@@ -1,5 +1,5 @@
 [build]
-  command = "DATABASE_URL=$NETLIFY_DATABASE_URL_UNPOOLED npx prisma generate && npm run build"
+  command = "DATABASE_URL=$NETLIFY_DATABASE_URL_UNPOOLED npx prisma generate && (DATABASE_URL=$NETLIFY_DATABASE_URL_UNPOOLED npx prisma migrate deploy || DATABASE_URL=$NETLIFY_DATABASE_URL_UNPOOLED npx ts-node scripts/add-missing-client-fields.ts) && npm run build"
   publish = ".next"
 
 [build.environment]

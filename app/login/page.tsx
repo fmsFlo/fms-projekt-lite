@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic'
 function LoginContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -15,9 +16,21 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Entfernt: Middleware übernimmt die Prüfung und Weiterleitung
-  // Kein Session-Check mehr auf der Login-Seite, um Endlosschleifen zu vermeiden
+  // Lade gespeicherte Login-Daten beim Mount
   useEffect(() => {
+    try {
+      const savedEmail = localStorage.getItem('savedEmail');
+      const savedPassword = localStorage.getItem('savedPassword');
+      const savedRememberMe = localStorage.getItem('rememberMe') === 'true';
+      
+      if (savedEmail && savedPassword && savedRememberMe) {
+        setEmail(savedEmail);
+        setPassword(savedPassword);
+        setRememberMe(true);
+      }
+    } catch (err) {
+      console.error('Fehler beim Laden gespeicherter Login-Daten:', err);
+    }
     setCheckingSession(false);
   }, [])
 
@@ -54,6 +67,26 @@ function LoginContent() {
       console.log('🔍 Login Response OK:', response.ok);
 
       if (response.ok) {
+        // Speichere Login-Daten wenn "Passwort speichern" aktiviert
+        if (rememberMe) {
+          try {
+            localStorage.setItem('savedEmail', email);
+            localStorage.setItem('savedPassword', password);
+            localStorage.setItem('rememberMe', 'true');
+          } catch (err) {
+            console.error('Fehler beim Speichern der Login-Daten:', err);
+          }
+        } else {
+          // Lösche gespeicherte Daten wenn Checkbox nicht aktiviert
+          try {
+            localStorage.removeItem('savedEmail');
+            localStorage.removeItem('savedPassword');
+            localStorage.removeItem('rememberMe');
+          } catch (err) {
+            console.error('Fehler beim Löschen der Login-Daten:', err);
+          }
+        }
+        
         // Success - redirect NOW!
         console.log('✅ Login erfolgreich, weiterleiten zu /dashboard');
         
@@ -148,6 +181,23 @@ function LoginContent() {
             />
           </div>
 
+          <div className="flex items-center">
+            <input
+              id="rememberMe"
+              name="rememberMe"
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="w-4 h-4 rounded focus:ring-2"
+              style={{
+                accentColor: 'var(--color-primary)',
+              }}
+            />
+            <label htmlFor="rememberMe" className="ml-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              Passwort speichern
+            </label>
+          </div>
+
               <button
                 type="submit"
                 disabled={loading}
@@ -167,6 +217,29 @@ function LoginContent() {
                 </a>
               </div>
             </form>
+            
+            {/* Impressum und Datenschutz Links */}
+            <div className="mt-8 pt-6 border-t text-center text-xs space-x-4" style={{ borderColor: 'var(--color-border)' }}>
+              <a 
+                href="https://financemadesimple.de/impressum"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                Impressum
+              </a>
+              <span style={{ color: 'var(--color-text-secondary)' }}>|</span>
+              <a 
+                href="https://financemadesimple.de/datenschutz"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                Datenschutz
+              </a>
+            </div>
           </div>
         </div>
       );
