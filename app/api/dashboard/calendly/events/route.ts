@@ -67,14 +67,13 @@ export async function GET(req: NextRequest) {
         ce."startTime" as start_time,
         ce."endTime" as end_time,
         ce.status,
-        ce."hostName" as host_name,
+        COALESCE(u.name, ce."hostName") AS host_name,
         ce."hostEmail" as host_email,
         ce."userId" as user_id,
         ce."inviteeName" as invitee_name,
         ce."inviteeEmail" as invitee_email,
         ce."leadId" as lead_id,
-        ce."syncedAt" as synced_at,
-        COALESCE(u.name, ce."hostName") AS host_name
+        ce."syncedAt" as synced_at
       FROM calendly_events ce
       LEFT JOIN "User" u ON ce."userId" = u.id
       ${where}
