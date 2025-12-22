@@ -5,14 +5,14 @@ const prisma = new PrismaClient()
 async function addMissingFields(tableName, fields) {
   try {
     // Prüfe welche Felder fehlen
-    const fieldNames = fields.map(f => f.name)
-    const existingColumns = await prisma.$queryRaw`
+    const fieldNames = fields.map(f => `'${f.name}'`).join(',')
+    const existingColumns = await prisma.$executeRawUnsafe(`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_schema = 'public' 
-      AND table_name = ${tableName}
-      AND column_name = ANY(${fieldNames})
-    `
+      AND table_name = '${tableName}'
+      AND column_name IN (${fieldNames})
+    `)
     
     const existingFields = existingColumns.map(row => row.column_name)
     console.log(`📊 ${tableName}: Bereits vorhandene Felder:`, existingFields)
