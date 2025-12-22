@@ -147,6 +147,39 @@ export async function POST(req: Request) {
       }
     })
     
+    // Synchronisiere wichtige Werte zum Client (mit Fehlerbehandlung)
+    const clientUpdateData: any = {}
+    if (data.targetPensionNetto !== undefined) {
+      clientUpdateData.targetPensionNetto = data.targetPensionNetto
+    }
+    if (data.desiredRetirementAge !== undefined) {
+      clientUpdateData.desiredRetirementAge = data.desiredRetirementAge
+    }
+    if (data.monthlySavings !== undefined) {
+      clientUpdateData.monthlySavings = data.monthlySavings
+    }
+    if (birthDate !== null) {
+      clientUpdateData.birthDate = birthDate
+    }
+    
+    // Aktualisiere Client, wenn es Werte zu synchronisieren gibt
+    // Fehlerbehandlung: Wenn Client-Update fehlschlägt, ist das nicht kritisch
+    if (Object.keys(clientUpdateData).length > 0) {
+      try {
+        await prisma.client.update({
+          where: { id: data.clientId },
+          data: clientUpdateData
+        })
+      } catch (clientUpdateError: any) {
+        // Logge den Fehler, aber lasse das Konzept-Speichern nicht scheitern
+        console.warn('Fehler beim Synchronisieren der Client-Daten:', clientUpdateError.message)
+        // Prüfe, ob die Felder in der Datenbank existieren
+        if (clientUpdateError.message?.includes('Unknown argument') || clientUpdateError.message?.includes('does not exist')) {
+          console.warn('Hinweis: Client-Felder existieren möglicherweise noch nicht in der Datenbank. Führe "npx prisma db push" aus.')
+        }
+      }
+    }
+    
     return NextResponse.json(concept, { status: 201 })
   } catch (err: any) {
     console.error('Error creating retirement concept:', err)

@@ -36,7 +36,7 @@ interface RetirementCalculatorProps {
     inflationRate?: number
     returnRate?: number
   }
-  onActionClick?: () => void
+  onActionClick?: () => void  // Callback für Call-to-Action Button (zur Ergebnis-Seite)
   showSelector?: boolean // Option to hide selector if needed
 }
 
@@ -104,7 +104,7 @@ export default function RetirementCalculator({
         <div className="mb-6">
           <PersonalitySelector 
             selected={selectedPersonality} 
-            onSelect={setSelectedPersonality} 
+            onSelect={setSelectedPersonality}
           />
         </div>
       )}

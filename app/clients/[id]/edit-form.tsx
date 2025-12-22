@@ -1,6 +1,8 @@
 "use client"
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { useFormDraft } from '@/app/hooks/useFormDraft'
 
 type Client = {
   id: string
@@ -21,12 +23,16 @@ type Client = {
   employmentStatus?: string | null
   salaryGrade?: string | null
   grvInsuranceStatus?: string | null
+  targetPensionNetto?: number | null
+  desiredRetirementAge?: number | null
+  monthlySavings?: number | null
 }
 
 export default function EditClientForm({ client }: { client: Client }) {
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  
   // Formatiere Geburtsdatum für Input
   const formatBirthDate = (date: Date | string | null | undefined): string => {
     if (!date) return ''
@@ -34,37 +40,44 @@ export default function EditClientForm({ client }: { client: Client }) {
     return d.toISOString().split('T')[0]
   }
 
-  const [form, setForm] = useState({
-    firstName: client.firstName || '',
-    lastName: client.lastName || '',
-    email: client.email || '',
-    phone: client.phone || '',
-    street: client.street || '',
-    houseNumber: client.houseNumber || '',
-    city: client.city || '',
-    zip: client.zip || '',
-    iban: client.iban || '',
-    crmId: client.crmId || '',
-    isCompany: client.isCompany || false,
-    companyName: client.companyName || '',
-    birthDate: formatBirthDate(client.birthDate),
-    profession: client.profession || '',
-    employmentStatus: client.employmentStatus || '',
-    salaryGrade: client.salaryGrade || '',
-    grvInsuranceStatus: client.grvInsuranceStatus || ''
+  const { watch, formState: { isDirty }, reset, register, handleSubmit } = useForm({
+    defaultValues: {
+      firstName: client.firstName || '',
+      lastName: client.lastName || '',
+      email: client.email || '',
+      phone: client.phone || '',
+      street: client.street || '',
+      houseNumber: client.houseNumber || '',
+      city: client.city || '',
+      zip: client.zip || '',
+      iban: client.iban || '',
+      crmId: client.crmId || '',
+      isCompany: client.isCompany || false,
+      companyName: client.companyName || '',
+      birthDate: formatBirthDate(client.birthDate),
+      profession: client.profession || '',
+      employmentStatus: client.employmentStatus || '',
+      salaryGrade: client.salaryGrade || '',
+      grvInsuranceStatus: client.grvInsuranceStatus || ''
+    }
   })
 
-  function onChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setForm({ ...form, [e.target.name]: e.target.value })
-  }
+  const watchedValues = watch()
 
-  async function onSave() {
+  // Hook einbinden
+  const { clearDraft } = useFormDraft(
+    `customer_${client.id}`, 
+    watchedValues, 
+    isDirty
+  )
+
+  const onSave = async (data: typeof watchedValues) => {
     setSaving(true)
     try {
       const res = await fetch(`/api/clients/${client.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
+        body: JSON.stringify(data)
       })
       
       if (!res.ok) {
@@ -73,6 +86,7 @@ export default function EditClientForm({ client }: { client: Client }) {
         throw new Error(errorData.message || errorData.details || 'Speichern fehlgeschlagen')
       }
       
+      clearDraft() // WICHTIG: Draft löschen
       setIsEditing(false)
       router.refresh()
       alert('✅ Kundendaten erfolgreich aktualisiert!')
@@ -100,6 +114,14 @@ export default function EditClientForm({ client }: { client: Client }) {
               )}
               {client.iban && <p className="break-all">🏦 {client.iban}</p>}
               {client.crmId && <p className="text-xs md:text-sm break-all" style={{ color: 'var(--color-text-tertiary)' }}>CRM-ID: {client.crmId}</p>}
+              {(client.targetPensionNetto || client.desiredRetirementAge || client.monthlySavings) && (
+                <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                  <p className="text-xs font-medium mb-1" style={{ color: 'var(--color-text-tertiary)' }}>Rentenkonzept-Werte:</p>
+                  {client.targetPensionNetto && <p className="text-xs">💰 Wunschrente: {client.targetPensionNetto.toLocaleString('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 })}/mtl.</p>}
+                  {client.desiredRetirementAge && <p className="text-xs">🎯 Rentenalter: {client.desiredRetirementAge} Jahre</p>}
+                  {client.monthlySavings && <p className="text-xs">💵 Sparbetrag: {client.monthlySavings.toLocaleString('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 })}/mtl.</p>}
+                </div>
+              )}
             </div>
           </div>
           <button
@@ -126,14 +148,12 @@ export default function EditClientForm({ client }: { client: Client }) {
         <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>Kundendaten bearbeiten</h2>
       </div>
 
-      <div className="rounded-lg p-3 md:p-4 space-y-4" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
+      <form onSubmit={handleSubmit(onSave)} className="rounded-lg p-3 md:p-4 space-y-4" style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>Vorname *</label>
             <input
-              name="firstName"
-              value={form.firstName}
-              onChange={onChange}
+              {...register('firstName')}
               className="w-full rounded px-3 py-2 focus:outline-none focus:ring-2 transition-colors"
               style={{
                 border: '1px solid var(--color-border)',
@@ -148,15 +168,13 @@ export default function EditClientForm({ client }: { client: Client }) {
                 e.currentTarget.style.borderColor = 'var(--color-border)'
                 e.currentTarget.style.boxShadow = 'none'
               }}
-              required={!form.isCompany}
+              required={!watchedValues.isCompany}
             />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Nachname</label>
             <input
-              name="lastName"
-              value={form.lastName}
-              onChange={onChange}
+              {...register('lastName')}
               className="w-full border rounded px-3 py-2"
             />
           </div>
@@ -164,46 +182,39 @@ export default function EditClientForm({ client }: { client: Client }) {
             <input
               type="checkbox"
               id="isCompany"
-              checked={form.isCompany}
-              onChange={(e) => setForm({ ...form, isCompany: e.target.checked })}
+              {...register('isCompany')}
               className="h-4 w-4"
             />
             <label htmlFor="isCompany" className="text-sm font-medium">
               Ist ein Unternehmen
             </label>
           </div>
-          {form.isCompany && (
+          {watchedValues.isCompany && (
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">Firmenname *</label>
               <input
-                name="companyName"
+                {...register('companyName')}
                 type="text"
-                value={form.companyName}
-                onChange={onChange}
                 className="w-full border rounded px-3 py-2"
                 required
               />
             </div>
           )}
-          {!form.isCompany && (
+          {!watchedValues.isCompany && (
             <>
               <div>
                 <label className="block text-sm font-medium mb-1">Geburtsdatum</label>
                 <input
                   type="date"
-                  name="birthDate"
-                  value={form.birthDate}
-                  onChange={onChange}
+                  {...register('birthDate')}
                   className="w-full border rounded px-3 py-2"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Beruf</label>
                 <input
-                  name="profession"
+                  {...register('profession')}
                   type="text"
-                  value={form.profession}
-                  onChange={onChange}
                   className="w-full border rounded px-3 py-2"
                   placeholder="z.B. Lehrer, Ingenieur..."
                 />
@@ -211,9 +222,7 @@ export default function EditClientForm({ client }: { client: Client }) {
               <div>
                 <label className="block text-sm font-medium mb-1">Status *</label>
                 <select
-                  name="employmentStatus"
-                  value={form.employmentStatus}
-                  onChange={(e) => setForm({ ...form, employmentStatus: e.target.value })}
+                  {...register('employmentStatus')}
                   className="w-full border rounded px-3 py-2"
                 >
                   <option value="">Bitte wählen...</option>
@@ -222,26 +231,22 @@ export default function EditClientForm({ client }: { client: Client }) {
                   <option value="selbständig">Selbständig</option>
                 </select>
               </div>
-              {form.employmentStatus === 'beamter' && (
+              {watchedValues.employmentStatus === 'beamter' && (
                 <div>
                   <label className="block text-sm font-medium mb-1">Besoldungsstufe</label>
                   <input
-                    name="salaryGrade"
+                    {...register('salaryGrade')}
                     type="text"
-                    value={form.salaryGrade}
-                    onChange={onChange}
                     className="w-full border rounded px-3 py-2"
                     placeholder="z.B. A13, A14..."
                   />
                 </div>
               )}
-              {form.employmentStatus === 'selbständig' && (
+              {watchedValues.employmentStatus === 'selbständig' && (
                 <div>
                   <label className="block text-sm font-medium mb-1">GRV-Versicherung</label>
                   <select
-                    name="grvInsuranceStatus"
-                    value={form.grvInsuranceStatus}
-                    onChange={(e) => setForm({ ...form, grvInsuranceStatus: e.target.value })}
+                    {...register('grvInsuranceStatus')}
                     className="w-full border rounded px-3 py-2"
                   >
                     <option value="">Bitte wählen...</option>
@@ -256,18 +261,14 @@ export default function EditClientForm({ client }: { client: Client }) {
             <label className="block text-sm font-medium mb-1">E-Mail</label>
             <input
               type="email"
-              name="email"
-              value={form.email}
-              onChange={onChange}
+              {...register('email')}
               className="w-full border rounded px-3 py-2"
             />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Telefon</label>
             <input
-              name="phone"
-              value={form.phone}
-              onChange={onChange}
+              {...register('phone')}
               className="w-full border rounded px-3 py-2"
               placeholder="+49 170 1234567"
             />
@@ -275,9 +276,7 @@ export default function EditClientForm({ client }: { client: Client }) {
           <div>
             <label className="block text-sm font-medium mb-1">Straße</label>
             <input
-              name="street"
-              value={form.street}
-              onChange={onChange}
+              {...register('street')}
               className="w-full border rounded px-3 py-2"
               placeholder="Hauptstr."
             />
@@ -285,9 +284,7 @@ export default function EditClientForm({ client }: { client: Client }) {
           <div>
             <label className="block text-sm font-medium mb-1">Hausnummer</label>
             <input
-              name="houseNumber"
-              value={form.houseNumber}
-              onChange={onChange}
+              {...register('houseNumber')}
               className="w-full border rounded px-3 py-2"
               placeholder="10"
             />
@@ -295,9 +292,7 @@ export default function EditClientForm({ client }: { client: Client }) {
           <div>
             <label className="block text-sm font-medium mb-1">PLZ</label>
             <input
-              name="zip"
-              value={form.zip}
-              onChange={onChange}
+              {...register('zip')}
               className="w-full border rounded px-3 py-2"
               placeholder="12345"
             />
@@ -305,9 +300,7 @@ export default function EditClientForm({ client }: { client: Client }) {
           <div>
             <label className="block text-sm font-medium mb-1">Ort</label>
             <input
-              name="city"
-              value={form.city}
-              onChange={onChange}
+              {...register('city')}
               className="w-full border rounded px-3 py-2"
               placeholder="Berlin"
             />
@@ -315,9 +308,7 @@ export default function EditClientForm({ client }: { client: Client }) {
           <div className="md:col-span-2">
             <label className="block text-sm font-medium mb-1">IBAN</label>
             <input
-              name="iban"
-              value={form.iban}
-              onChange={onChange}
+              {...register('iban')}
               className="w-full border rounded px-3 py-2"
               placeholder="DE12 3456 7890 1234 5678 90"
             />
@@ -325,9 +316,7 @@ export default function EditClientForm({ client }: { client: Client }) {
           <div className="md:col-span-2">
             <label className="block text-sm font-medium mb-1">CRM-ID</label>
             <input
-              name="crmId"
-              value={form.crmId}
-              onChange={onChange}
+              {...register('crmId')}
               className="w-full border rounded px-3 py-2"
               placeholder="lead_abc123..."
               disabled
@@ -338,8 +327,8 @@ export default function EditClientForm({ client }: { client: Client }) {
 
         <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
           <button
-            onClick={onSave}
-            disabled={saving || !form.firstName}
+            type="submit"
+            disabled={saving || !watchedValues.firstName}
             className="w-full sm:w-auto px-4 py-2 rounded text-white hover:opacity-90 transition-opacity disabled:opacity-50"
             style={{ 
               backgroundColor: 'var(--color-success)',
@@ -349,8 +338,9 @@ export default function EditClientForm({ client }: { client: Client }) {
             {saving ? '💾 Speichere...' : '💾 Speichern'}
           </button>
           <button
+            type="button"
             onClick={() => {
-              setForm({
+              reset({
                 firstName: client.firstName || '',
                 lastName: client.lastName || '',
                 email: client.email || '',
@@ -382,7 +372,7 @@ export default function EditClientForm({ client }: { client: Client }) {
             Abbrechen
           </button>
         </div>
-      </div>
+      </form>
     </div>
   )
 }

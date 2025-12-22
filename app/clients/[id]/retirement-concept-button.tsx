@@ -10,6 +10,27 @@ export default function RetirementConceptButton({ clientId }: { clientId: string
   const handleCreate = async () => {
     setLoading(true)
     try {
+      // ✅ RICHTIG - Finde letztes oder erstelle neues
+      console.log('🔍 Prüfe ob Konzept für Client existiert:', clientId)
+      
+      // Prüfe ob bereits ein Konzept existiert
+      const existingRes = await fetch(`/api/retirement-concepts?clientId=${clientId}`)
+      if (existingRes.ok) {
+        const existingConcepts = await existingRes.json()
+        console.log('🔍 Gefundene Konzepte:', existingConcepts.length)
+        
+        if (existingConcepts.length > 0) {
+          // Nutze existierendes Konzept (neuestes zuerst)
+          const latestConcept = existingConcepts[0] // Bereits nach createdAt desc sortiert
+          console.log('✅ Lade existierendes Konzept:', latestConcept.id)
+          router.push(`/clients/${clientId}/retirement-concept/${latestConcept.id}`)
+          router.refresh()
+          return
+        }
+      }
+      
+      // Nur wenn KEIN Konzept existiert: Erstelle neues
+      console.log('✅ Kein Konzept gefunden, erstelle neues...')
       const res = await fetch('/api/retirement-concepts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -24,6 +45,7 @@ export default function RetirementConceptButton({ clientId }: { clientId: string
       }
 
       const concept = await res.json()
+      console.log('✅ Neues Konzept erstellt:', concept.id)
       router.push(`/clients/${clientId}/retirement-concept/${concept.id}`)
       router.refresh()
     } catch (err: any) {
@@ -47,7 +69,7 @@ export default function RetirementConceptButton({ clientId }: { clientId: string
         backgroundColor: 'var(--color-primary)'
       }}
     >
-      💰 Rentenkonzept erstellen
+      💰 Rentenkonzept {loading ? 'wird geladen...' : 'öffnen'}
     </button>
   )
 }

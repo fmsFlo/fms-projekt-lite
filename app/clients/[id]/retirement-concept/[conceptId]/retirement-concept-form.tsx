@@ -1,14 +1,18 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import type { RefObject } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams, useParams } from 'next/navigation'
+import ConceptNavigation from '@/app/components/retirement/ConceptNavigation'
+import { useFormPersistence } from '@/app/hooks/useFormPersistence'
+import DraftRestoreDialog from '@/app/components/retirement/DraftRestoreDialog'
 import type { RetirementConceptTemplateData } from '@/lib/retirementConceptTemplate'
 import berechneBeamtenpension, { berechneSteuern } from '@/lib/beamtenpension/beamtenpension-rechner'
 import type { BeamtenpensionErgebnis } from '@/lib/beamtenpension/types'
 import { BEAMTEN_BESOLDUNG, BESOLDUNG_DATA_STAND } from '../../../../../lib/beamtenpension/besoldungstabellen'
 import type { Bundesland } from '../../../../../lib/beamtenpension/besoldungstabellen'
 import RetirementCalculator from '@/app/components/retirement/RetirementCalculator'
+import { Info, ChevronDown, ChevronUp } from 'lucide-react'
 
 type ProvisionType = 
   | 'Privatrente'
@@ -133,6 +137,85 @@ const getProvisionTaxableShareForProvision = (provision: Provision, retirementAg
   return DEFAULT_PROVISION_TAXABLE_SHARE
 }
 
+// InfoButton-Komponente für Tooltips
+const InfoButton = ({ content }: { content: string }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const tooltipRef = useRef<HTMLDivElement>(null)
+  
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (tooltipRef.current && !tooltipRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isOpen])
+  
+  return (
+    <div className="relative inline-block" ref={tooltipRef}>
+      <button
+        type="button"
+        onMouseEnter={() => setIsOpen(true)}
+        onMouseLeave={() => setIsOpen(false)}
+        onClick={() => setIsOpen(!isOpen)}
+        className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-600 transition-colors ml-1.5 flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+        aria-label="Information"
+      >
+        <Info className="w-3.5 h-3.5" />
+      </button>
+      {isOpen && (
+        <div className="absolute z-50 w-72 p-3 mt-1.5 text-xs text-gray-700 bg-white border border-gray-200 rounded-lg shadow-xl left-0 top-full">
+          <p className="leading-relaxed">{content}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Collapsible-Komponente für klappbare Sektionen
+const CollapsibleSection = ({ 
+  title, 
+  children, 
+  defaultOpen = false 
+}: { 
+  title: string
+  children: React.ReactNode
+  defaultOpen?: boolean 
+}) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen)
+  
+  return (
+    <div className="border rounded-lg bg-white shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-5 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+      >
+        <h4 className="font-semibold text-gray-900">{title}</h4>
+        <div className="flex items-center gap-2">
+          {isOpen ? (
+            <ChevronUp className="w-5 h-5 text-gray-600" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-600" />
+          )}
+        </div>
+      </button>
+      {isOpen && (
+        <div className="p-5">
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const calculateProvisionMonthlyTax = (
   monthlyGross: number,
   type: ProvisionType,
@@ -240,6 +323,7 @@ type RetirementConcept = {
   customTemplateHtml?: string | null
   recommendationDelta?: number | null
   notes: string | null
+  calculationSnapshot?: string | null
   client?: {
     id: string
     firstName: string
@@ -416,20 +500,75 @@ type CivilServantInsuranceType = 'statutory' | 'private'
 
 export default function RetirementConceptForm({ initialConcept, clientBirthDate, initialAttachments }: RetirementConceptFormProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [saving, setSaving] = useState(false)
-  const [currentStep, setCurrentStep] = useState(1)
   const totalSteps = 4
+  
+  // Lese Step aus URL-Parametern oder verwende Standard
+  const stepFromUrl = searchParams.get('step')
+  const initialStep = stepFromUrl ? parseInt(stepFromUrl, 10) : 1
+  const [currentStep, setCurrentStep] = useState(initialStep)
+  
+  // Aktualisiere Step wenn URL-Parameter sich ändern
+  useEffect(() => {
+    const stepFromUrl = searchParams.get('step')
+    if (stepFromUrl) {
+      const step = parseInt(stepFromUrl, 10)
+      if (step >= 1 && step <= totalSteps) {
+        setCurrentStep(step)
+      }
+    } else {
+      // Wenn kein Step-Parameter, setze auf 1 (Datenerfassung)
+      setCurrentStep(1)
+    }
+  }, [searchParams, totalSteps])
+  
   const [showInCurrentPurchasingPower, setShowInCurrentPurchasingPower] = useState(false)
-  const conceptId = initialConcept.id
+  
+  // Bestimme aktive Ansicht für Navigation
+  const activeView = 
+    currentStep === 4 ? 'personal' : 
+    currentStep === 3 ? 'dashboard' : 
+    'datenerfassung'
+  
+  // Hole conceptId aus URL-Params (sicherer als initialConcept.id)
+  const params = useParams()
+  const conceptId = (params?.conceptId as string) || initialConcept.id
   const [attachments, setAttachments] = useState<ConceptAttachment[]>(initialAttachments ?? [])
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  
+  
+  // Prüfe Admin-Status beim Laden
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      try {
+        const response = await fetch('/api/user')
+        if (response.ok) {
+          const user = await response.json()
+          setIsAdmin(user.role === 'admin')
+        }
+      } catch (error) {
+        // Fehler ignorieren - nicht Admin
+        setIsAdmin(false)
+      }
+    }
+    checkAdminStatus()
+  }, [])
   const [isMounted, setIsMounted] = useState(false)
   
   // Verhindere Hydration-Probleme durch client-seitiges Rendering
   useEffect(() => {
     setIsMounted(true)
-  }, [])
+    // Banner soll jedes Mal wieder erscheinen - kein localStorage-Check mehr
+  }, [conceptId])
+
+  const handleDismissAdvisoryNotice = () => {
+    // Nur für die aktuelle Session ausblenden, nicht in localStorage speichern
+    setAdvisoryNoticeDismissed(true)
+  }
+
   const [htmlPreview, setHtmlPreview] = useState<string>('')
   const [htmlPreviewOriginal, setHtmlPreviewOriginal] = useState<string | null>(null)
   const [loadingHtmlPreview, setLoadingHtmlPreview] = useState(false)
@@ -439,7 +578,17 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
   const [htmlTemplateData, setHtmlTemplateData] = useState<RetirementConceptTemplateData | null>(null)
   const [savingHtml, setSavingHtml] = useState(false)
   const [overviewMode, setOverviewMode] = useState<'detail' | 'dashboard'>('dashboard')
+  const [dashboardTheme, setDashboardTheme] = useState<'dark' | 'light'>('dark')
   const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null)
+  const [advisoryMode, setAdvisoryMode] = useState(false)
+  const [advisoryNoticeDismissed, setAdvisoryNoticeDismissed] = useState(false)
+  
+  // Banner wieder anzeigen, wenn Beratungsmodus aktiviert wird
+  useEffect(() => {
+    if (advisoryMode) {
+      setAdvisoryNoticeDismissed(false)
+    }
+  }, [advisoryMode])
   const provisionFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const statutoryFileInputRef = useRef<HTMLInputElement | null>(null)
   const privateFileInputRef = useRef<HTMLInputElement | null>(null)
@@ -452,7 +601,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
       ? new Date(clientBirthDate).toISOString().split('T')[0]
       : ''
 
-  // Parse bestehende Vorsorge
+  // Parse bestehende Vorsorge (wird nur einmal definiert)
   const initialProvisions: Provision[] = initialConcept.existingProvisionData
     ? (JSON.parse(initialConcept.existingProvisionData) as Provision[]).map((p) => ({
       id:
@@ -470,6 +619,9 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
       attachmentIds: Array.isArray((p as any).attachmentIds) ? ((p as any).attachmentIds as string[]) : [],
       }))
     : []
+  
+  // Form-Persistenz: Provisions State
+  const [provisions, setProvisions] = useState<Provision[]>(initialProvisions)
 
   const initialCalculationSnapshot = useMemo(() => {
     const snapshotRaw = (initialConcept as any).calculationSnapshot
@@ -496,13 +648,13 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
   const [formData, setFormData] = useState({
     birthDate: initialBirthDate,
     desiredRetirementAge: initialConcept.desiredRetirementAge?.toString() || '67',
-    targetPensionNetto: initialConcept.targetPensionNetto?.toString() || '',
+      targetPensionNetto: initialConcept.targetPensionNetto !== null && initialConcept.targetPensionNetto !== undefined ? initialConcept.targetPensionNetto.toString() : '',
     hasCurrentPensionInfo: initialConcept.hasCurrentPensionInfo ?? true,
-    pensionAtRetirement: initialConcept.pensionAtRetirement?.toString() || '',
-    pensionIncrease: initialConcept.pensionIncrease?.toString() || '',
-    inflationRate: initialConcept.inflationRate?.toString() || '2.0',
+      pensionAtRetirement: initialConcept.pensionAtRetirement !== null && initialConcept.pensionAtRetirement !== undefined ? initialConcept.pensionAtRetirement.toString() : '',
+      pensionIncrease: initialConcept.pensionIncrease !== null && initialConcept.pensionIncrease !== undefined ? initialConcept.pensionIncrease.toString() : '',
+      inflationRate: initialConcept.inflationRate !== null && initialConcept.inflationRate !== undefined ? initialConcept.inflationRate.toString() : '2.0',
     lifeExpectancy: (initialConcept as any).lifeExpectancy?.toString() || '90',
-    monthlySavings: (initialConcept as any).monthlySavings?.toString() || '',
+      monthlySavings: (initialConcept as any).monthlySavings !== null && (initialConcept as any).monthlySavings !== undefined ? (initialConcept as any).monthlySavings.toString() : '',
     delayStartYearsY: '0',
     delayStartYearsZ: '5',
     returnRate: (initialConcept as any).returnRate?.toString() || '5.0',
@@ -522,6 +674,9 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
     privateWeaknesses: (initialConcept as any).privateWeaknesses || '',
     recommendation: initialConcept.notes || '',
     recommendationDelta: (initialConcept as any).recommendationDelta?.toString() || '',
+    recommendationProvider: (initialConcept as any).recommendationProvider || '',
+    recommendationAdvantages: (initialConcept as any).recommendationAdvantages || '',
+    expectedRente: (initialConcept as any).expectedRente?.toString() || '',
     customTemplateHtml: (initialConcept as any).customTemplateHtml || '',
     employmentType: initialEmploymentType,
     civilServiceEntryDate: initialCivilServantMeta?.inputs.entryDate || '',
@@ -563,7 +718,181 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
     capitalGainsAllowance: (initialConcept as any).capitalGainsAllowance?.toString() || '1000',
   })
 
-  const [provisions, setProvisions] = useState<Provision[]>(initialProvisions)
+  // Aktualisiere formData wenn initialConcept sich ändert (z.B. beim Neuladen)
+  // Verwende initialConcept.id als Key, um sicherzustellen, dass bei jedem Neuladen aktualisiert wird
+  useEffect(() => {
+    const newBirthDate = initialConcept.birthDate 
+      ? new Date(initialConcept.birthDate).toISOString().split('T')[0]
+      : clientBirthDate 
+        ? new Date(clientBirthDate).toISOString().split('T')[0]
+        : ''
+    
+    setFormData((prev) => {
+      // Prüfe, ob sich Werte geändert haben, um unnötige Updates zu vermeiden
+      const newData = {
+        birthDate: newBirthDate || prev.birthDate,
+        desiredRetirementAge: initialConcept.desiredRetirementAge?.toString() || prev.desiredRetirementAge,
+        targetPensionNetto: initialConcept.targetPensionNetto !== null && initialConcept.targetPensionNetto !== undefined ? initialConcept.targetPensionNetto.toString() : prev.targetPensionNetto,
+        hasCurrentPensionInfo: initialConcept.hasCurrentPensionInfo ?? prev.hasCurrentPensionInfo,
+        pensionAtRetirement: initialConcept.pensionAtRetirement !== null && initialConcept.pensionAtRetirement !== undefined ? initialConcept.pensionAtRetirement.toString() : prev.pensionAtRetirement,
+        pensionIncrease: initialConcept.pensionIncrease !== null && initialConcept.pensionIncrease !== undefined ? initialConcept.pensionIncrease.toString() : prev.pensionIncrease,
+        inflationRate: initialConcept.inflationRate !== null && initialConcept.inflationRate !== undefined ? initialConcept.inflationRate.toString() : prev.inflationRate,
+        lifeExpectancy: (initialConcept as any).lifeExpectancy?.toString() || prev.lifeExpectancy,
+        monthlySavings: (initialConcept as any).monthlySavings !== null && (initialConcept as any).monthlySavings !== undefined ? (initialConcept as any).monthlySavings.toString() : prev.monthlySavings,
+        returnRate: (initialConcept as any).returnRate?.toString() || prev.returnRate,
+        withdrawalRate: (initialConcept as any).withdrawalRate?.toString() || prev.withdrawalRate,
+        hasChildren: (initialConcept as any).hasChildren ?? prev.hasChildren,
+        isCompulsoryInsured: (initialConcept as any).isCompulsoryInsured ?? prev.isCompulsoryInsured,
+        kvBaseRate: (initialConcept as any).kvBaseRate?.toString() || prev.kvBaseRate,
+        kvAdditionalRate: (initialConcept as any).kvAdditionalRate?.toString() || prev.kvAdditionalRate,
+        kvContributionIncrease: (initialConcept as any).kvContributionIncrease?.toString() || prev.kvContributionIncrease,
+        taxFilingStatus: (initialConcept as any).taxFilingStatus || prev.taxFilingStatus,
+        taxFreeAmount: (initialConcept as any).taxFreeAmount?.toString() || prev.taxFreeAmount,
+        taxIncreaseRate: (initialConcept as any).taxIncreaseRate?.toString() || prev.taxIncreaseRate,
+        taxFreePercentage: (initialConcept as any).taxFreePercentage?.toString() || prev.taxFreePercentage,
+        statutoryStrengths: initialConcept.statutoryStrengths || prev.statutoryStrengths,
+        statutoryWeaknesses: initialConcept.statutoryWeaknesses || prev.statutoryWeaknesses,
+        privateStrengths: (initialConcept as any).privateStrengths || prev.privateStrengths,
+        privateWeaknesses: (initialConcept as any).privateWeaknesses || prev.privateWeaknesses,
+        recommendation: initialConcept.notes || prev.recommendation,
+        recommendationDelta: (initialConcept as any).recommendationDelta?.toString() || prev.recommendationDelta,
+        recommendationProvider: (initialConcept as any).recommendationProvider || prev.recommendationProvider,
+        recommendationAdvantages: (initialConcept as any).recommendationAdvantages || prev.recommendationAdvantages,
+        expectedRente: (initialConcept as any).expectedRente?.toString() || prev.expectedRente,
+        customTemplateHtml: (initialConcept as any).customTemplateHtml || prev.customTemplateHtml,
+        // Behalte alle anderen Felder
+        delayStartYearsY: prev.delayStartYearsY,
+        delayStartYearsZ: prev.delayStartYearsZ,
+        employmentType: prev.employmentType,
+        civilServiceEntryDate: prev.civilServiceEntryDate,
+        civilServiceState: prev.civilServiceState,
+        civilServiceBesoldungsgruppe: prev.civilServiceBesoldungsgruppe,
+        civilServiceErfahrungsstufe: prev.civilServiceErfahrungsstufe,
+        civilServiceBesoldungsordnung: prev.civilServiceBesoldungsordnung,
+        civilServiceAdditional: prev.civilServiceAdditional,
+        civilServicePensionIncrease: prev.civilServicePensionIncrease,
+        civilServiceHasPromotion: prev.civilServiceHasPromotion,
+        civilServiceFutureGroup: prev.civilServiceFutureGroup,
+        civilServiceFutureLevel: prev.civilServiceFutureLevel,
+        civilServiceFutureBesoldungsordnung: prev.civilServiceFutureBesoldungsordnung,
+        civilServiceChurchTax: prev.civilServiceChurchTax,
+        insuranceType: prev.insuranceType,
+        statutoryHasBeihilfe: prev.statutoryHasBeihilfe,
+        beihilfeRateCurrent: prev.beihilfeRateCurrent,
+        beihilfeRateRetirement: prev.beihilfeRateRetirement,
+        privateContributionCurrent: prev.privateContributionCurrent,
+        currentGrossIncome: prev.currentGrossIncome,
+        pastWorkingYears: prev.pastWorkingYears,
+        trainingYears: prev.trainingYears,
+        childrenYears: prev.childrenYears,
+        partialExemption: prev.partialExemption,
+        acquisitionCosts: prev.acquisitionCosts,
+        capitalGainsTaxRate: prev.capitalGainsTaxRate,
+        capitalGainsAllowance: prev.capitalGainsAllowance,
+      }
+      return newData
+    })
+    
+    // Aktualisiere auch Provisions
+    if (initialConcept.existingProvisionData) {
+      try {
+        const parsedProvisions = JSON.parse(initialConcept.existingProvisionData) as Provision[]
+        setProvisions(parsedProvisions.map((p) => ({
+          id: typeof p.id === 'string' && p.id.length > 0
+            ? p.id
+            : typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random()}`,
+          type: p.type,
+          amount: typeof p.amount === 'number' ? p.amount : parseFloat(String((p as any).amount ?? '0')) || 0,
+          name: p.name || '',
+          strengths: (p as any).strengths || '',
+          weaknesses: (p as any).weaknesses || '',
+          recommendation: (p as any).recommendation || '',
+          attachmentIds: Array.isArray((p as any).attachmentIds) ? ((p as any).attachmentIds as string[]) : [],
+        })))
+      } catch (error) {
+        console.warn('Fehler beim Parsen der Provisions:', error)
+      }
+    }
+  }, [
+    initialConcept.id,
+    initialConcept.birthDate,
+    initialConcept.desiredRetirementAge,
+    initialConcept.targetPensionNetto,
+    initialConcept.hasCurrentPensionInfo,
+    initialConcept.pensionAtRetirement,
+    initialConcept.pensionIncrease,
+    initialConcept.inflationRate,
+    (initialConcept as any).lifeExpectancy,
+    (initialConcept as any).monthlySavings,
+    (initialConcept as any).returnRate,
+    (initialConcept as any).withdrawalRate,
+    initialConcept.existingProvisionData,
+    clientBirthDate
+  ]) // Alle relevanten Felder als Dependencies, damit beim Neuladen aktualisiert wird
+
+  // Kombinierte Daten für Persistenz (formData + provisions)
+  const combinedFormData = useMemo(() => ({
+    ...formData,
+    provisions,
+  }), [formData, provisions])
+  
+  // Interne Save-Funktion (wird vom Hook und manuell verwendet)
+  const handleSaveInternalRef = useRef<((dataToSave?: typeof combinedFormData, navigateToResult?: boolean) => Promise<void>) | null>(null)
+  
+  // Form-Persistenz Hook
+  const {
+    draftData,
+    showRestoreDialog,
+    hasUnsavedChanges,
+    restoreDraft,
+    discardDraft,
+    saveAndClearDraft,
+  } = useFormPersistence({
+    draftKey: `${initialConcept.clientId}_retirement_concept_${conceptId}`,
+    formData: combinedFormData,
+    onSave: async (data) => {
+      // Wrapper für handleSave - wird vom Hook aufgerufen
+      if (handleSaveInternalRef.current) {
+        await handleSaveInternalRef.current(data, false)
+      }
+    },
+    debounceMs: 500,
+    storageType: 'localStorage',
+    maxAgeHours: 24,
+  })
+  
+  // Wiederherstellung der Draft-Daten
+  useEffect(() => {
+    if (draftData && showRestoreDialog) {
+      // Warte auf User-Interaktion
+    }
+  }, [draftData, showRestoreDialog])
+  
+  const handleRestoreDraft = () => {
+    if (draftData) {
+      const restored = restoreDraft(draftData)
+      if (restored) {
+        // Entferne provisions aus restored, da es separat behandelt wird
+        const { provisions: restoredProvisions, ...restoredFormData } = restored
+        setFormData(restoredFormData as typeof formData)
+        if (restoredProvisions && Array.isArray(restoredProvisions)) {
+          setProvisions(restoredProvisions)
+        }
+      }
+    }
+  }
+  
+  const handleDiscardDraft = () => {
+    discardDraft()
+  }
+  
+  // Lade Draft-Timestamp für Dialog
+  const draftTimestamp = draftData && typeof draftData === 'object' && 'timestamp' in draftData
+    ? (draftData as any).timestamp
+    : undefined
+
   const [openProvisionId, setOpenProvisionId] = useState<string | null>(null)
   const [dashboardMonthlySavings, setDashboardMonthlySavings] = useState(() => {
     const parsed = parseFloat((initialConcept as any).monthlySavings?.toString?.() ?? formData.monthlySavings ?? '0')
@@ -591,6 +920,17 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
       setDashboardMonthlySavings(parsed)
     }
   }, [formData.monthlySavings])
+
+  // Debug: Logge formData-Änderungen
+  useEffect(() => {
+    console.log('🔍 Form-Werte NACHHER (useEffect):', {
+      birthDate: formData.birthDate,
+      desiredRetirementAge: formData.desiredRetirementAge,
+      targetPensionNetto: formData.targetPensionNetto,
+      lifeExpectancy: formData.lifeExpectancy,
+      monthlySavings: formData.monthlySavings,
+    })
+  }, [formData.birthDate, formData.desiredRetirementAge, formData.targetPensionNetto, formData.lifeExpectancy, formData.monthlySavings])
 
   const [showStatutoryTooltip, setShowStatutoryTooltip] = useState(false)
   const [provisionTooltipType, setProvisionTooltipType] = useState<'existing' | 'planned' | null>(null)
@@ -2431,56 +2771,77 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
     ))
   }
 
-  const handleSave = async () => {
+  // Interne Save-Funktion (wird vom Hook und manuell verwendet)
+  const handleSaveInternal = useCallback(async (dataToSave?: typeof combinedFormData, navigateToResult: boolean = true) => {
     setSaving(true)
     try {
+      // Verwende die übergebenen Daten oder aktuellen formData/provisions
+      const data = dataToSave || combinedFormData
+      const currentFormData = data && 'formData' in data ? (data as any).formData : formData
+      const currentProvisions = data && 'provisions' in data ? (data as any).provisions : provisions
+      
       const { totalCurrent, totalFuture } = calculateTotalPension()
       const { totalCurrent: provisionCurrent } = calculateProvisionTotals()
       const calculationSnapshot = buildCalculationSnapshot()
-    const targetPensionFuture = calculateTargetPensionFuture()
+      const targetPensionFuture = calculateTargetPensionFuture()
+      const { currentValue } = calculatePensionAtRetirement()
 
-      const res = await fetch(`/api/retirement-concepts/${initialConcept.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-      birthDate: formData.birthDate || null,
-      desiredRetirementAge: formData.desiredRetirementAge ? parseInt(formData.desiredRetirementAge) : null,
-      targetPensionNetto: formData.targetPensionNetto ? parseFloat(formData.targetPensionNetto) : null,
-      hasCurrentPensionInfo: formData.hasCurrentPensionInfo,
-      pensionAtRetirement: formData.pensionAtRetirement ? parseFloat(formData.pensionAtRetirement) : null,
-      pensionIncrease: formData.pensionIncrease ? parseFloat(formData.pensionIncrease) : null,
-      inflationRate: formData.inflationRate ? parseFloat(formData.inflationRate) : null,
+      const bodyData = {
+      birthDate: currentFormData.birthDate || null,
+      desiredRetirementAge: currentFormData.desiredRetirementAge && currentFormData.desiredRetirementAge.trim() !== '' ? parseInt(currentFormData.desiredRetirementAge) : null,
+      targetPensionNetto: currentFormData.targetPensionNetto && currentFormData.targetPensionNetto.trim() !== '' ? parseFloat(currentFormData.targetPensionNetto) : null,
+      hasCurrentPensionInfo: currentFormData.hasCurrentPensionInfo,
+      pensionAtRetirement: currentFormData.pensionAtRetirement && currentFormData.pensionAtRetirement.trim() !== '' ? parseFloat(currentFormData.pensionAtRetirement) : null,
+      pensionIncrease: currentFormData.pensionIncrease && currentFormData.pensionIncrease.trim() !== '' ? parseFloat(currentFormData.pensionIncrease) : null,
+      inflationRate: currentFormData.inflationRate && currentFormData.inflationRate.trim() !== '' ? parseFloat(currentFormData.inflationRate) : null,
       calculatedPensionAtRetirement: currentValue,
-      existingProvisionData: JSON.stringify(provisions),
+      existingProvisionData: JSON.stringify(currentProvisions),
           totalExistingProvision: provisionCurrent, // Abdiskontierte Vorsorge
       totalPensionWithProvision: totalCurrent,
       calculatedTargetPension: targetPensionFuture,
-          statutoryStrengths: formData.statutoryStrengths || null,
-          statutoryWeaknesses: formData.statutoryWeaknesses || null,
-          privateStrengths: formData.privateStrengths || null,
-          privateWeaknesses: formData.privateWeaknesses || null,
-          customTemplateHtml: formData.customTemplateHtml && formData.customTemplateHtml.trim().length > 0 ? formData.customTemplateHtml : null,
-          recommendationDelta: formData.recommendationDelta ? parseFloat(formData.recommendationDelta) : null,
-          notes: formData.recommendation || null,
+          statutoryStrengths: currentFormData.statutoryStrengths || null,
+          statutoryWeaknesses: currentFormData.statutoryWeaknesses || null,
+          privateStrengths: currentFormData.privateStrengths || null,
+          privateWeaknesses: currentFormData.privateWeaknesses || null,
+          customTemplateHtml: currentFormData.customTemplateHtml && currentFormData.customTemplateHtml.trim().length > 0 ? currentFormData.customTemplateHtml : null,
+          recommendationDelta: currentFormData.recommendationDelta ? parseFloat(currentFormData.recommendationDelta) : null,
+          notes: currentFormData.recommendation || null,
+          recommendationProvider: currentFormData.recommendationProvider || null,
+          recommendationAdvantages: currentFormData.recommendationAdvantages || null,
+          expectedRente: currentFormData.expectedRente ? parseFloat(currentFormData.expectedRente) : null,
           // Neue Felder für Kapitalbedarf (wird später im Schema hinzugefügt)
-      lifeExpectancy: formData.lifeExpectancy ? parseInt(formData.lifeExpectancy) : null,
-      monthlySavings: formData.monthlySavings ? parseFloat(formData.monthlySavings) : null,
-      returnRate: formData.returnRate ? parseFloat(formData.returnRate) : null,
-      withdrawalRate: formData.withdrawalRate ? parseFloat(formData.withdrawalRate) : null,
-      hasChildren: Boolean(formData.hasChildren),
-      isCompulsoryInsured: Boolean(formData.isCompulsoryInsured),
-      kvBaseRate: formData.kvBaseRate ? parseFloat(formData.kvBaseRate) : null,
-      kvAdditionalRate: formData.kvAdditionalRate ? parseFloat(formData.kvAdditionalRate) : null,
-      kvContributionIncrease: formData.kvContributionIncrease ? parseFloat(formData.kvContributionIncrease) : null,
-          taxFilingStatus: formData.taxFilingStatus,
-      taxFreeAmount: formData.taxFreeAmount ? parseFloat(formData.taxFreeAmount) : null,
-      taxIncreaseRate: formData.taxIncreaseRate ? parseFloat(formData.taxIncreaseRate) : null,
+      lifeExpectancy: currentFormData.lifeExpectancy && currentFormData.lifeExpectancy.trim() !== '' ? parseInt(currentFormData.lifeExpectancy) : null,
+      monthlySavings: currentFormData.monthlySavings && currentFormData.monthlySavings.trim() !== '' ? parseFloat(currentFormData.monthlySavings) : null,
+      returnRate: currentFormData.returnRate && currentFormData.returnRate.trim() !== '' ? parseFloat(currentFormData.returnRate) : null,
+      withdrawalRate: currentFormData.withdrawalRate && currentFormData.withdrawalRate.trim() !== '' ? parseFloat(currentFormData.withdrawalRate) : null,
+      hasChildren: Boolean(currentFormData.hasChildren),
+      isCompulsoryInsured: Boolean(currentFormData.isCompulsoryInsured),
+      kvBaseRate: currentFormData.kvBaseRate && currentFormData.kvBaseRate.trim() !== '' ? parseFloat(currentFormData.kvBaseRate) : null,
+      kvAdditionalRate: currentFormData.kvAdditionalRate && currentFormData.kvAdditionalRate.trim() !== '' ? parseFloat(currentFormData.kvAdditionalRate) : null,
+      kvContributionIncrease: currentFormData.kvContributionIncrease && currentFormData.kvContributionIncrease.trim() !== '' ? parseFloat(currentFormData.kvContributionIncrease) : null,
+          taxFilingStatus: currentFormData.taxFilingStatus,
+      taxFreeAmount: currentFormData.taxFreeAmount && currentFormData.taxFreeAmount.trim() !== '' ? parseFloat(currentFormData.taxFreeAmount) : null,
+      taxIncreaseRate: currentFormData.taxIncreaseRate && currentFormData.taxIncreaseRate.trim() !== '' ? parseFloat(currentFormData.taxIncreaseRate) : null,
       taxFreePercentage: (() => {
         const firstRetirementYear = calculateFirstRetirementYear()
         return firstRetirementYear ? calculateTaxableShareForRetirementYear(firstRetirementYear) : null
       })(),
           calculationSnapshot: JSON.stringify(calculationSnapshot),
-        }),
+        }
+      
+      console.log('💾 SPEICHERN - Gesendete Daten:', {
+        targetPensionNetto: bodyData.targetPensionNetto,
+        pensionAtRetirement: bodyData.pensionAtRetirement,
+        monthlySavings: bodyData.monthlySavings,
+        desiredRetirementAge: bodyData.desiredRetirementAge,
+        lifeExpectancy: bodyData.lifeExpectancy,
+      })
+      console.log('💾 SPEICHERN - Vollständiger Body:', bodyData)
+      
+      const res = await fetch(`/api/retirement-concepts/${conceptId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyData),
       })
 
       if (!res.ok) {
@@ -2488,27 +2849,318 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
         throw new Error(errorData.message || 'Speichern fehlgeschlagen')
       }
 
+      // Lade aktualisierte Daten und aktualisiere State
+      const updatedConcept = await res.json()
+      
+      // Aktualisiere formData mit gespeicherten Werten
+      setFormData((prev) => ({
+        ...prev,
+        birthDate: updatedConcept.birthDate ? new Date(updatedConcept.birthDate).toISOString().split('T')[0] : prev.birthDate,
+        desiredRetirementAge: updatedConcept.desiredRetirementAge?.toString() || prev.desiredRetirementAge,
+        targetPensionNetto: updatedConcept.targetPensionNetto !== null && updatedConcept.targetPensionNetto !== undefined ? updatedConcept.targetPensionNetto.toString() : prev.targetPensionNetto,
+        hasCurrentPensionInfo: updatedConcept.hasCurrentPensionInfo ?? prev.hasCurrentPensionInfo,
+        pensionAtRetirement: updatedConcept.pensionAtRetirement !== null && updatedConcept.pensionAtRetirement !== undefined ? updatedConcept.pensionAtRetirement.toString() : prev.pensionAtRetirement,
+        pensionIncrease: updatedConcept.pensionIncrease !== null && updatedConcept.pensionIncrease !== undefined ? updatedConcept.pensionIncrease.toString() : prev.pensionIncrease,
+        inflationRate: updatedConcept.inflationRate !== null && updatedConcept.inflationRate !== undefined ? updatedConcept.inflationRate.toString() : prev.inflationRate,
+        lifeExpectancy: updatedConcept.lifeExpectancy?.toString() || prev.lifeExpectancy,
+        monthlySavings: updatedConcept.monthlySavings !== null && updatedConcept.monthlySavings !== undefined ? updatedConcept.monthlySavings.toString() : prev.monthlySavings,
+        returnRate: updatedConcept.returnRate?.toString() || prev.returnRate,
+        withdrawalRate: updatedConcept.withdrawalRate?.toString() || prev.withdrawalRate,
+        hasChildren: updatedConcept.hasChildren ?? prev.hasChildren,
+        isCompulsoryInsured: updatedConcept.isCompulsoryInsured ?? prev.isCompulsoryInsured,
+        kvBaseRate: updatedConcept.kvBaseRate?.toString() || prev.kvBaseRate,
+        kvAdditionalRate: updatedConcept.kvAdditionalRate?.toString() || prev.kvAdditionalRate,
+        kvContributionIncrease: updatedConcept.kvContributionIncrease?.toString() || prev.kvContributionIncrease,
+        taxFilingStatus: updatedConcept.taxFilingStatus || prev.taxFilingStatus,
+        taxFreeAmount: updatedConcept.taxFreeAmount?.toString() || prev.taxFreeAmount,
+        taxIncreaseRate: updatedConcept.taxIncreaseRate?.toString() || prev.taxIncreaseRate,
+        taxFreePercentage: updatedConcept.taxFreePercentage?.toString() || prev.taxFreePercentage,
+        statutoryStrengths: updatedConcept.statutoryStrengths || prev.statutoryStrengths,
+        statutoryWeaknesses: updatedConcept.statutoryWeaknesses || prev.statutoryWeaknesses,
+        privateStrengths: updatedConcept.privateStrengths || prev.privateStrengths,
+        privateWeaknesses: updatedConcept.privateWeaknesses || prev.privateWeaknesses,
+        recommendation: updatedConcept.notes || prev.recommendation,
+        recommendationDelta: updatedConcept.recommendationDelta?.toString() || prev.recommendationDelta,
+        recommendationProvider: updatedConcept.recommendationProvider || prev.recommendationProvider,
+        recommendationAdvantages: updatedConcept.recommendationAdvantages || prev.recommendationAdvantages,
+        expectedRente: updatedConcept.expectedRente?.toString() || prev.expectedRente,
+      }))
+      
+      // Aktualisiere Provisions aus existingProvisionData
+      if (updatedConcept.existingProvisionData) {
+        try {
+          const parsedProvisions = JSON.parse(updatedConcept.existingProvisionData) as Provision[]
+          setProvisions(parsedProvisions.map((p) => ({
+            ...p,
+            id: p.id || crypto.randomUUID(),
+            name: p.name || '',
+            strengths: p.strengths || '',
+            weaknesses: p.weaknesses || '',
+            recommendation: p.recommendation || '',
+            attachmentIds: Array.isArray(p.attachmentIds) ? p.attachmentIds : [],
+          })))
+        } catch (error) {
+          console.error('Fehler beim Parsen der Provisions:', error)
+        }
+      }
+
       router.refresh()
       
-      // Navigiere zur Ergebnisseite
-      router.push(`/clients/${initialConcept.clientId}/retirement-concept/${initialConcept.id}/ergebnis`)
+      // Navigiere zur Ergebnisseite nur wenn explizit gewünscht
+      if (navigateToResult) {
+        router.push(`/clients/${initialConcept.clientId}/retirement-concept/${initialConcept.id}/ergebnis`)
+      }
     } catch (err: any) {
       alert(`❌ Fehler: ${err.message}`)
       console.error('Fehler beim Speichern:', err)
+      throw err // Weiterwerfen für Hook
     } finally {
       setSaving(false)
     }
-  }
+  }, [formData, provisions, calculateTotalPension, calculateProvisionTotals, buildCalculationSnapshot, calculateTargetPensionFuture, calculatePensionAtRetirement, initialConcept, router, combinedFormData, setSaving])
+  
+  // Speichere Referenz für Hook
+  useEffect(() => {
+    handleSaveInternalRef.current = handleSaveInternal
+  }, [handleSaveInternal])
+  
+  // Öffentliche Save-Funktion (verwendet Hook für Draft-Cleanup)
+  const handleSave = useCallback(async (navigateToResult: boolean = true) => {
+    await saveAndClearDraft()
+    if (navigateToResult) {
+      router.push(`/clients/${initialConcept.clientId}/retirement-concept/${initialConcept.id}/ergebnis`)
+    }
+  }, [saveAndClearDraft, router, initialConcept])
 
-  const nextStep = () => {
+  // Funktion zum Laden der Daten aus der Datenbank
+  const handleLoadData = useCallback(async () => {
+    setSaving(true)
+    try {
+      console.log('🔄 Lade Konzept - conceptId aus URL:', conceptId)
+      console.log('🔄 Lade Konzept - initialConcept.id:', initialConcept.id)
+      console.log('🔄 Lade Konzept - IDs stimmen überein?', conceptId === initialConcept.id)
+      
+      const res = await fetch(`/api/retirement-concepts/${conceptId}`)
+      if (!res.ok) {
+        throw new Error('Fehler beim Laden der Daten')
+      }
+      const concept = await res.json()
+      
+      console.log('📥 Geladene Daten (RAW - vollständig):', concept)
+      console.log('📥 Geladene Daten - targetPensionNetto:', concept.targetPensionNetto)
+      console.log('📥 Geladene Daten - targetPensionNetto Type:', typeof concept.targetPensionNetto)
+      console.log('📥 Geladene Daten - concept.id:', concept.id)
+      console.log('📥 Geladene Daten - initialConcept.id:', initialConcept.id)
+      console.log('📥 Geladene Daten - IDs stimmen überein?', concept.id === initialConcept.id)
+      console.log('🔍 Geladene Daten - Wichtige Felder (RAW):', {
+        birthDate: concept.birthDate,
+        desiredRetirementAge: concept.desiredRetirementAge,
+        targetPensionNetto: concept.targetPensionNetto,
+        pensionAtRetirement: concept.pensionAtRetirement,
+        monthlySavings: concept.monthlySavings,
+        lifeExpectancy: concept.lifeExpectancy,
+        pensionIncrease: concept.pensionIncrease,
+        inflationRate: concept.inflationRate,
+        returnRate: concept.returnRate,
+        withdrawalRate: concept.withdrawalRate,
+      })
+      console.log('🔍 Typen der geladenen Werte:', {
+        targetPensionNetto: typeof concept.targetPensionNetto,
+        targetPensionNettoValue: concept.targetPensionNetto,
+        pensionAtRetirement: typeof concept.pensionAtRetirement,
+        pensionAtRetirementValue: concept.pensionAtRetirement,
+        monthlySavings: typeof concept.monthlySavings,
+        monthlySavingsValue: concept.monthlySavings,
+      })
+      console.log('🔍 Form-Werte VORHER:', formData)
+      
+      // Aktualisiere formData mit geladenen Werten - verwende Funktions-Updater um auf aktuelle formData zuzugreifen
+      const newBirthDate = concept.birthDate 
+        ? new Date(concept.birthDate).toISOString().split('T')[0]
+        : clientBirthDate 
+          ? new Date(clientBirthDate).toISOString().split('T')[0]
+          : ''
+      
+      // Erstelle das neue formData-Objekt
+      console.log('🔍 Konvertiere targetPensionNetto:', {
+        rawValue: concept.targetPensionNetto,
+        rawType: typeof concept.targetPensionNetto,
+        isNull: concept.targetPensionNetto === null,
+        isUndefined: concept.targetPensionNetto === undefined,
+        converted: concept.targetPensionNetto !== null && concept.targetPensionNetto !== undefined ? concept.targetPensionNetto.toString() : '',
+      })
+      
+      const loadedFormData = {
+        ...formData, // Behalte alle bestehenden Werte als Fallback
+        birthDate: newBirthDate || '',
+        desiredRetirementAge: concept.desiredRetirementAge !== null && concept.desiredRetirementAge !== undefined ? concept.desiredRetirementAge.toString() : '67',
+        targetPensionNetto: concept.targetPensionNetto !== null && concept.targetPensionNetto !== undefined ? concept.targetPensionNetto.toString() : '',
+        hasCurrentPensionInfo: concept.hasCurrentPensionInfo ?? true,
+        pensionAtRetirement: concept.pensionAtRetirement !== null && concept.pensionAtRetirement !== undefined ? concept.pensionAtRetirement.toString() : '',
+        pensionIncrease: concept.pensionIncrease !== null && concept.pensionIncrease !== undefined ? concept.pensionIncrease.toString() : '',
+        inflationRate: concept.inflationRate !== null && concept.inflationRate !== undefined ? concept.inflationRate.toString() : '2.0',
+        lifeExpectancy: concept.lifeExpectancy !== null && concept.lifeExpectancy !== undefined ? concept.lifeExpectancy.toString() : '90',
+        monthlySavings: concept.monthlySavings !== null && concept.monthlySavings !== undefined ? concept.monthlySavings.toString() : '',
+        returnRate: concept.returnRate !== null && concept.returnRate !== undefined ? concept.returnRate.toString() : '5.0',
+        withdrawalRate: concept.withdrawalRate !== null && concept.withdrawalRate !== undefined ? concept.withdrawalRate.toString() : '3.0',
+        hasChildren: concept.hasChildren ?? true,
+        isCompulsoryInsured: concept.isCompulsoryInsured ?? true,
+        kvBaseRate: concept.kvBaseRate !== null && concept.kvBaseRate !== undefined ? concept.kvBaseRate.toString() : '7.3',
+        kvAdditionalRate: concept.kvAdditionalRate !== null && concept.kvAdditionalRate !== undefined ? concept.kvAdditionalRate.toString() : '2.5',
+        kvContributionIncrease: concept.kvContributionIncrease !== null && concept.kvContributionIncrease !== undefined ? concept.kvContributionIncrease.toString() : '0',
+        taxFilingStatus: concept.taxFilingStatus || 'single',
+        taxFreeAmount: concept.taxFreeAmount !== null && concept.taxFreeAmount !== undefined ? concept.taxFreeAmount.toString() : '12096',
+        taxIncreaseRate: concept.taxIncreaseRate !== null && concept.taxIncreaseRate !== undefined ? concept.taxIncreaseRate.toString() : '0',
+        taxFreePercentage: concept.taxFreePercentage !== null && concept.taxFreePercentage !== undefined ? concept.taxFreePercentage.toString() : '83.5',
+        statutoryStrengths: concept.statutoryStrengths || '',
+        statutoryWeaknesses: concept.statutoryWeaknesses || '',
+        privateStrengths: concept.privateStrengths || '',
+        privateWeaknesses: concept.privateWeaknesses || '',
+        recommendation: concept.notes || '',
+        recommendationDelta: concept.recommendationDelta !== null && concept.recommendationDelta !== undefined ? concept.recommendationDelta.toString() : '',
+        recommendationProvider: concept.recommendationProvider || '',
+        recommendationAdvantages: concept.recommendationAdvantages || '',
+        expectedRente: concept.expectedRente !== null && concept.expectedRente !== undefined ? concept.expectedRente.toString() : '',
+        customTemplateHtml: concept.customTemplateHtml || '',
+        currentGrossIncome: concept.currentGrossIncome !== null && concept.currentGrossIncome !== undefined ? concept.currentGrossIncome.toString() : formData.currentGrossIncome,
+        pastWorkingYears: concept.pastWorkingYears !== null && concept.pastWorkingYears !== undefined ? concept.pastWorkingYears.toString() : formData.pastWorkingYears,
+        trainingYears: concept.trainingYears !== null && concept.trainingYears !== undefined ? concept.trainingYears.toString() : formData.trainingYears,
+        childrenYears: concept.childrenYears !== null && concept.childrenYears !== undefined ? concept.childrenYears.toString() : formData.childrenYears,
+        partialExemption: concept.partialExemption !== null && concept.partialExemption !== undefined ? concept.partialExemption.toString() : formData.partialExemption,
+        acquisitionCosts: concept.acquisitionCosts !== null && concept.acquisitionCosts !== undefined ? concept.acquisitionCosts.toString() : formData.acquisitionCosts,
+        capitalGainsTaxRate: concept.capitalGainsTaxRate !== null && concept.capitalGainsTaxRate !== undefined ? concept.capitalGainsTaxRate.toString() : formData.capitalGainsTaxRate,
+        capitalGainsAllowance: concept.capitalGainsAllowance !== null && concept.capitalGainsAllowance !== undefined ? concept.capitalGainsAllowance.toString() : formData.capitalGainsAllowance,
+      }
+      
+      console.log('🔍 Geladene formData (NEU):', loadedFormData)
+      console.log('🔍 Wichtige Felder (geladen):', {
+        birthDate: loadedFormData.birthDate,
+        desiredRetirementAge: loadedFormData.desiredRetirementAge,
+        targetPensionNetto: loadedFormData.targetPensionNetto,
+        lifeExpectancy: loadedFormData.lifeExpectancy,
+        monthlySavings: loadedFormData.monthlySavings,
+        pensionAtRetirement: loadedFormData.pensionAtRetirement,
+        pensionIncrease: loadedFormData.pensionIncrease,
+      })
+      console.log('🔍 Vergleich VORHER vs NACHHER:', {
+        vorher: {
+          birthDate: formData.birthDate,
+          desiredRetirementAge: formData.desiredRetirementAge,
+          targetPensionNetto: formData.targetPensionNetto,
+        },
+        nachher: {
+          birthDate: loadedFormData.birthDate,
+          desiredRetirementAge: loadedFormData.desiredRetirementAge,
+          targetPensionNetto: loadedFormData.targetPensionNetto,
+        },
+        hatSichGeaendert: {
+          birthDate: formData.birthDate !== loadedFormData.birthDate,
+          desiredRetirementAge: formData.desiredRetirementAge !== loadedFormData.desiredRetirementAge,
+          targetPensionNetto: formData.targetPensionNetto !== loadedFormData.targetPensionNetto,
+        }
+      })
+      
+      // Setze formData mit Funktions-Updater
+      console.log('📥 Form-Daten für setFormData():', {
+        targetPensionNetto: loadedFormData.targetPensionNetto,
+        pensionAtRetirement: loadedFormData.pensionAtRetirement,
+        monthlySavings: loadedFormData.monthlySavings,
+        desiredRetirementAge: loadedFormData.desiredRetirementAge,
+        lifeExpectancy: loadedFormData.lifeExpectancy,
+      })
+      
+      setFormData((prev) => {
+        console.log('🔍 setFormData wird aufgerufen, prev:', {
+          targetPensionNetto: prev.targetPensionNetto,
+          pensionAtRetirement: prev.pensionAtRetirement,
+        })
+        console.log('🔍 setFormData wird aufgerufen, loadedFormData:', {
+          targetPensionNetto: loadedFormData.targetPensionNetto,
+          pensionAtRetirement: loadedFormData.pensionAtRetirement,
+        })
+        return loadedFormData
+      })
+      
+      // Warte kurz und prüfe dann die Werte über useEffect
+      setTimeout(() => {
+        console.log('✅ Form-Werte nach setFormData() (über setTimeout):', {
+          // Diese Werte werden über useEffect geloggt
+        })
+      }, 200)
+      
+      // Aktualisiere Provisions
+      if (concept.existingProvisionData) {
+        try {
+          const parsedProvisions = JSON.parse(concept.existingProvisionData) as Provision[]
+          console.log('Geladene Provisions:', parsedProvisions) // Debug-Log
+          setProvisions(parsedProvisions.map((p) => ({
+            id: typeof p.id === 'string' && p.id.length > 0
+              ? p.id
+              : typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+                ? crypto.randomUUID()
+                : `${Date.now()}-${Math.random()}`,
+            type: p.type,
+            amount: typeof p.amount === 'number' ? p.amount : parseFloat(String((p as any).amount ?? '0')) || 0,
+            name: p.name || '',
+            strengths: (p as any).strengths || '',
+            weaknesses: (p as any).weaknesses || '',
+            recommendation: (p as any).recommendation || '',
+            attachmentIds: Array.isArray((p as any).attachmentIds) ? ((p as any).attachmentIds as string[]) : [],
+          })))
+        } catch (error) {
+          console.warn('Fehler beim Parsen der Provisions:', error)
+        }
+      } else {
+        // Wenn keine Provisions vorhanden sind, setze leeres Array
+        setProvisions([])
+      }
+      
+      alert('✅ Daten erfolgreich geladen!')
+    } catch (err: any) {
+      console.error('Fehler beim Laden:', err)
+      alert(`❌ Fehler beim Laden: ${err.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }, [initialConcept.id, clientBirthDate])
+
+  // Funktion zum manuellen Speichern (ohne Navigation)
+  const handleSaveData = useCallback(async () => {
+    if (handleSaveInternalRef.current) {
+      await handleSaveInternalRef.current(undefined, false)
+      alert('✅ Daten erfolgreich gespeichert!')
+    }
+  }, [])
+
+  const nextStep = async () => {
     if (currentStep < totalSteps) {
-      setCurrentStep(currentStep + 1)
+      // Automatisches Speichern beim Weiter-Klick (nur in Datenerfassung, Schritte 1-2)
+      if (currentStep <= 2) {
+        try {
+          await handleSave(false) // false = nicht zur Ergebnis-Seite navigieren
+        } catch (error) {
+          console.error('Fehler beim automatischen Speichern:', error)
+          // Weiterhin zum nächsten Schritt, auch wenn Speichern fehlschlägt
+        }
+      }
+      const newStep = currentStep + 1
+      setCurrentStep(newStep)
+      // Aktualisiere URL mit neuem Step
+      router.push(`/clients/${initialConcept.clientId}/retirement-concept/${conceptId}?step=${newStep}`, { scroll: false })
     }
   }
 
   const prevStep = () => {
     if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
+      const newStep = currentStep - 1
+      setCurrentStep(newStep)
+      // Aktualisiere URL mit neuem Step
+      if (newStep === 1) {
+        // Bei Schritt 1 keine Query-Parameter
+        router.push(`/clients/${initialConcept.clientId}/retirement-concept/${conceptId}`, { scroll: false })
+      } else {
+        router.push(`/clients/${initialConcept.clientId}/retirement-concept/${conceptId}?step=${newStep}`, { scroll: false })
+      }
     }
   }
   // Formatierungsfunktion für Jahre (eine Nachkommastelle oder Jahre und Monate)
@@ -3815,36 +4467,73 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
 
     const renderDelayScenarioSection = (variant: 'detail' | 'dashboard') => {
       const isDashboard = variant === 'dashboard'
+      const isLightTheme = isDashboard && dashboardTheme === 'light'
       const containerClass = isDashboard
-        ? 'rounded-3xl bg-gradient-to-br from-[#0B1326] via-[#142047] to-[#1F2F63] border border-white/15 backdrop-blur px-6 py-6 space-y-6 text-white shadow-[0_24px_60px_rgba(8,15,40,0.45)]'
+        ? isLightTheme
+          ? 'relative rounded-3xl bg-white/35 backdrop-blur-2xl border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.1)] px-6 py-6 space-y-6'
+          : 'rounded-3xl bg-gradient-to-br from-[#0B1326] via-[#142047] to-[#1F2F63] border border-white/15 backdrop-blur px-6 py-6 space-y-6 text-white shadow-[0_24px_60px_rgba(8,15,40,0.45)]'
         : 'border rounded-xl p-6 bg-white shadow-sm space-y-6'
-      const titleClass = isDashboard ? 'text-lg font-semibold text-white' : 'text-lg font-semibold text-slate-900'
-      const helperClass = isDashboard ? 'text-xs text-white/60 max-w-2xl' : 'text-xs text-gray-500 max-w-2xl'
+      const titleClass = isDashboard 
+        ? isLightTheme ? 'text-lg font-semibold text-slate-900' : 'text-lg font-semibold text-white'
+        : 'text-lg font-semibold text-slate-900'
+      const helperClass = isDashboard 
+        ? isLightTheme ? 'text-xs text-slate-600 max-w-2xl' : 'text-xs text-white/60 max-w-2xl'
+        : 'text-xs text-gray-500 max-w-2xl'
       const inputLabelClass = isDashboard
-        ? 'flex flex-col text-xs uppercase tracking-wide text-white/70 gap-1'
+        ? isLightTheme 
+          ? 'flex flex-col text-xs uppercase tracking-wide text-slate-600 gap-1'
+          : 'flex flex-col text-xs uppercase tracking-wide text-white/70 gap-1'
         : 'flex flex-col text-xs uppercase tracking-wide text-gray-500 gap-1'
       const inputClass = isDashboard
-        ? 'w-24 rounded-lg border border-white/25 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/40'
+        ? isLightTheme
+          ? 'w-24 rounded-lg border border-slate-300 bg-white/80 backdrop-blur-sm px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-200'
+          : 'w-24 rounded-lg border border-white/25 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/40'
         : 'w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-200'
-      const infoTextClass = isDashboard ? 'text-xs text-white/60 mt-1' : 'text-xs text-gray-500 mt-1'
+      const infoTextClass = isDashboard 
+        ? isLightTheme ? 'text-xs text-slate-500 mt-1' : 'text-xs text-white/60 mt-1'
+        : 'text-xs text-gray-500 mt-1'
       const baselineCardClass = isDashboard
-        ? 'rounded-2xl border border-white/20 bg-white/10 p-4 space-y-2'
+        ? isLightTheme
+          ? 'relative rounded-2xl border border-white/40 bg-white/30 backdrop-blur-xl p-4 space-y-2 shadow-sm'
+          : 'rounded-2xl border border-white/20 bg-white/10 p-4 space-y-2'
         : 'rounded-xl border border-gray-200 bg-slate-50 p-4 space-y-2'
       const scenarioCardClass = isDashboard
-        ? 'rounded-2xl border border-white/20 bg-[#0F1B36]/80 p-4 space-y-3'
+        ? isLightTheme
+          ? 'relative rounded-2xl border border-white/40 bg-white/35 backdrop-blur-xl p-4 space-y-3 shadow-sm'
+          : 'rounded-2xl border border-white/20 bg-[#0F1B36]/80 p-4 space-y-3'
         : 'rounded-xl border border-gray-200 bg-white p-4 space-y-3 shadow-sm'
-      const cardTitleClass = isDashboard ? 'text-sm font-semibold text-white' : 'text-sm font-semibold text-slate-900'
-      const cardSubtitleClass = isDashboard ? 'text-[11px] uppercase tracking-wide text-white/50' : 'text-[11px] uppercase tracking-wide text-gray-500'
-      const metricLabelClass = isDashboard ? 'text-[11px] uppercase tracking-wide text-white/60' : 'text-[11px] uppercase tracking-wide text-gray-500'
-      const metricValueClass = isDashboard ? 'text-lg font-semibold text-white' : 'text-lg font-semibold text-slate-900'
+      const cardTitleClass = isDashboard 
+        ? isLightTheme ? 'text-sm font-semibold text-slate-900' : 'text-sm font-semibold text-white'
+        : 'text-sm font-semibold text-slate-900'
+      const cardSubtitleClass = isDashboard 
+        ? isLightTheme ? 'text-[11px] uppercase tracking-wide text-slate-500' : 'text-[11px] uppercase tracking-wide text-white/50'
+        : 'text-[11px] uppercase tracking-wide text-gray-500'
+      const metricLabelClass = isDashboard 
+        ? isLightTheme ? 'text-[11px] uppercase tracking-wide text-slate-600' : 'text-[11px] uppercase tracking-wide text-white/60'
+        : 'text-[11px] uppercase tracking-wide text-gray-500'
+      const metricValueClass = isDashboard 
+        ? isLightTheme ? 'text-lg font-semibold text-slate-900' : 'text-lg font-semibold text-white'
+        : 'text-lg font-semibold text-slate-900'
       const summaryContainerClass = isDashboard
-        ? 'rounded-2xl border border-white/15 bg-white/10 p-5 space-y-3'
+        ? isLightTheme
+          ? 'relative rounded-2xl border border-white/40 bg-white/35 backdrop-blur-xl p-5 space-y-3 shadow-sm'
+          : 'rounded-2xl border border-white/15 bg-white/10 p-5 space-y-3'
         : 'rounded-xl border border-gray-200 bg-slate-50 p-5 space-y-3'
-      const summaryTitleClass = isDashboard ? 'text-xs uppercase tracking-wide text-white/60' : 'text-xs uppercase tracking-wide text-gray-500'
-      const summaryRowLabelClass = isDashboard ? 'text-xs text-white/60 uppercase tracking-wide' : 'text-xs text-gray-500 uppercase tracking-wide'
-      const summaryRowValueClass = isDashboard ? 'text-lg font-semibold text-white' : 'text-lg font-semibold text-slate-900'
-      const summaryHelperClass = isDashboard ? 'text-xs text-white/60' : 'text-xs text-gray-500'
-      const summaryLossClass = isDashboard ? 'text-xs text-rose-200' : 'text-xs text-red-600'
+      const summaryTitleClass = isDashboard 
+        ? isLightTheme ? 'text-xs uppercase tracking-wide text-slate-600' : 'text-xs uppercase tracking-wide text-white/60'
+        : 'text-xs uppercase tracking-wide text-gray-500'
+      const summaryRowLabelClass = isDashboard 
+        ? isLightTheme ? 'text-xs text-slate-600 uppercase tracking-wide' : 'text-xs text-white/60 uppercase tracking-wide'
+        : 'text-xs text-gray-500 uppercase tracking-wide'
+      const summaryRowValueClass = isDashboard 
+        ? isLightTheme ? 'text-lg font-semibold text-slate-900' : 'text-lg font-semibold text-white'
+        : 'text-lg font-semibold text-slate-900'
+      const summaryHelperClass = isDashboard 
+        ? isLightTheme ? 'text-xs text-slate-500' : 'text-xs text-white/60'
+        : 'text-xs text-gray-500'
+      const summaryLossClass = isDashboard 
+        ? isLightTheme ? 'text-xs text-red-600' : 'text-xs text-rose-200'
+        : 'text-xs text-red-600'
 
       const baselineInfo = [
         { label: 'Restlaufzeit', value: `${formatYears(Math.max(0, yearsToRetirementValue))}` },
@@ -3852,10 +4541,9 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
         { label: 'Aktuelle Sparrate', value: `${formatEuro(baseMonthlySavingsValue)} €` },
       ]
 
-    return (
-        <div className={containerClass}>
-          <div className="space-y-2">
-            <p className={cardSubtitleClass}>Sparstart simulieren</p>
+    const content = (
+      <>
+        <div className="space-y-2 mb-4">
             <h3 className={titleClass}>Wie verändern sich Beitrag & Kapital bei späterem Start?</h3>
             <p className={helperClass}>
               Trage zwei alternative Startpunkte ein und vergleiche den benötigten Monatsbeitrag, das erreichbare Kapital
@@ -3953,33 +4641,258 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
               ))}
             </div>
           </div>
-        </div>
+      </>
+    )
+
+    if (variant === 'detail') {
+      return (
+        <CollapsibleSection title="Sparstart simulieren" defaultOpen={false}>
+          <div className="space-y-6">
+            {content}
+          </div>
+        </CollapsibleSection>
       )
     }
-    const renderControlPanel = (variant: 'default' | 'dashboard' = 'default') => {
+
+    // Dashboard Variante mit CollapsibleSection
+    return (
+      <CollapsibleSection title="Wie verändern sich Beitrag & Kapital bei späterem Start?" defaultOpen={false}>
+      <div className={containerClass}>
+        {content}
+      </div>
+      </CollapsibleSection>
+    )
+  }
+    const renderControlPanel = (variant: 'default' | 'dashboard' | 'detail-desktop' = 'default') => {
       const isDashboard = variant === 'dashboard'
+      const isDetailDesktop = variant === 'detail-desktop'
       const wrapperClasses = isDashboard
-        ? 'rounded-[24px] bg-gradient-to-r from-[#161B2D] via-[#1C2551] to-[#1D3D8F] text-white p-6 flex flex-wrap items-center gap-6 shadow-lg'
-        : 'border rounded-lg p-4 bg-gray-50 flex flex-wrap items-center gap-6'
+        ? dashboardTheme === 'light'
+          ? 'rounded-[24px] bg-white/35 backdrop-blur-2xl border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.1)] p-4 md:p-6'
+          : 'rounded-[24px] bg-gradient-to-r from-[#161B2D] via-[#1C2551] to-[#1D3D8F] text-white p-4 md:p-6 shadow-lg'
+        : isDetailDesktop
+        ? 'bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A] rounded-2xl p-8 mb-8 border border-slate-700/50 shadow-xl'
+        : 'border rounded-lg p-4 bg-gray-50'
       const labelClass = isDashboard
-        ? 'block text-xs font-medium text-white/80 uppercase tracking-wide'
+        ? dashboardTheme === 'light'
+          ? 'text-sm font-medium text-slate-700'
+          : 'block text-xs font-medium text-white/80 uppercase tracking-wide'
+        : isDetailDesktop
+        ? 'text-sm font-medium text-slate-50'
         : 'block text-xs font-medium text-gray-600 uppercase tracking-wide'
       const helperClass = isDashboard
-        ? 'flex justify-between text-xs text-white/50 whitespace-nowrap gap-2'
-        : 'flex justify-between text-xs text-gray-500 whitespace-nowrap gap-2'
+        ? dashboardTheme === 'light'
+          ? 'flex justify-between text-xs text-slate-500 mt-1'
+          : 'grid grid-cols-3 items-center text-xs text-white/50 whitespace-nowrap'
+        : isDetailDesktop
+        ? 'flex justify-between text-xs text-slate-300 mt-1'
+        : 'grid grid-cols-3 items-center text-xs text-gray-500 whitespace-nowrap'
       const numberInputClass = (width = 'w-16') =>
         `${width} border rounded px-2 py-1 text-sm ${
           isDashboard
-            ? 'border-white/25 bg-white/10 text-white placeholder-white/40 focus:border-white focus:ring-white/30'
+            ? dashboardTheme === 'light'
+              ? 'px-2 py-1 text-right bg-white/80 backdrop-blur-sm rounded border border-slate-300 text-sm text-slate-900 focus:border-blue-500 focus:ring-blue-200'
+              : 'border-white/25 bg-white/10 text-white placeholder-white/40 focus:border-white focus:ring-white/30'
+            : isDetailDesktop
+            ? 'px-2 py-1 text-right bg-slate-800/60 rounded border border-slate-600/50 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:ring-blue-500/50 focus:bg-slate-800/80'
             : 'border-gray-300 text-gray-900 focus:border-blue-500 focus:ring-blue-200'
         }`
       const checkboxLabelClass = isDashboard
-        ? 'text-sm font-medium text-white whitespace-nowrap'
+        ? dashboardTheme === 'light'
+          ? 'text-sm font-medium text-slate-700 whitespace-nowrap'
+          : 'text-sm font-medium text-white whitespace-nowrap'
+        : isDetailDesktop
+        ? 'text-sm font-medium text-slate-50'
         : 'text-sm font-medium text-gray-700 whitespace-nowrap'
 
+      const checkboxClass = isDashboard
+        ? 'w-4 h-4 rounded border-white/25 bg-white/10 text-white focus:ring-white/40 accent-white'
+        : 'w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
+
+      // Desktop-Detail Variante
+      if (isDetailDesktop) {
       return (
         <div className={wrapperClasses}>
-          <div className="flex-1 min-w-[180px] space-y-2">
+            <h3 className="text-lg font-semibold mb-6 uppercase tracking-wide text-white">
+              Simulation anpassen
+            </h3>
+
+            {/* Toggles */}
+            <div className="flex gap-6 mb-8">
+              <label htmlFor="advisory-mode-detail" className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+                  id="advisory-mode-detail"
+              checked={advisoryMode}
+              onChange={(e) => setAdvisoryMode(e.target.checked)}
+                  className="sr-only"
+                />
+                <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out flex-shrink-0 ${
+                  advisoryMode ? 'bg-blue-500' : 'bg-slate-600/70'
+                }`}>
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ease-in-out ${
+                    advisoryMode ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </div>
+                <span className={checkboxLabelClass}>Beratungsmodus</span>
+            </label>
+
+              <label htmlFor="purchasing-power-detail" className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  id="purchasing-power-detail"
+                  checked={showInCurrentPurchasingPower}
+                  onChange={(e) => setShowInCurrentPurchasingPower(e.target.checked)}
+                  className="sr-only"
+                />
+                <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out flex-shrink-0 ${
+                  showInCurrentPurchasingPower ? 'bg-blue-500' : 'bg-slate-600/70'
+                }`}>
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ease-in-out ${
+                    showInCurrentPurchasingPower ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+          </div>
+                <span className={checkboxLabelClass}>In heutiger Kaufkraft</span>
+              </label>
+            </div>
+
+            {/* Sliders - 2x2 GRID für Desktop */}
+            <div className="hidden xl:grid grid-cols-2 gap-x-8 gap-y-6">
+              {/* Slider 1 - Inflationsrate */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className={labelClass}>Inflationsrate</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="5"
+                      step="0.1"
+                      value={formData.inflationRate}
+                      onChange={(e) => setFormData({ ...formData, inflationRate: e.target.value })}
+                      className={numberInputClass('w-16')}
+                    />
+                    <span className="text-sm text-slate-200">%</span>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="5"
+                  step="0.1"
+                  value={formData.inflationRate}
+                  onChange={(e) => setFormData({ ...formData, inflationRate: e.target.value })}
+                  className="w-full accent-blue-600"
+                />
+                <div className={helperClass}>
+                  <span>0%</span>
+                  <span className="font-semibold">{parseFloat(formData.inflationRate || '0').toFixed(1)}%</span>
+                  <span>5%</span>
+                </div>
+              </div>
+
+              {/* Slider 2 - Rendite Ansparphase */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className={labelClass}>Rendite Ansparphase</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="12"
+                      step="0.1"
+                      value={formData.returnRate}
+                      onChange={(e) => setFormData({ ...formData, returnRate: e.target.value })}
+                      className={numberInputClass('w-16')}
+                    />
+                    <span className="text-sm text-slate-200">%</span>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="12"
+                  step="0.5"
+                  value={formData.returnRate}
+                  onChange={(e) => setFormData({ ...formData, returnRate: e.target.value })}
+                  className="w-full accent-blue-600"
+                />
+                <div className={helperClass}>
+                  <span>0%</span>
+                  <span className="font-semibold">{parseFloat(formData.returnRate || '0').toFixed(1)}%</span>
+                  <span>12%</span>
+                </div>
+              </div>
+
+              {/* Slider 3 - Rendite Entnahmephase */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className={labelClass}>Rendite Entnahmephase</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="8"
+                      step="0.1"
+                      value={formData.withdrawalRate}
+                      onChange={(e) => setFormData({ ...formData, withdrawalRate: e.target.value })}
+                      className={numberInputClass('w-16')}
+                    />
+                    <span className="text-sm text-slate-200">%</span>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="8"
+                  step="0.5"
+                  value={formData.withdrawalRate}
+                  onChange={(e) => setFormData({ ...formData, withdrawalRate: e.target.value })}
+                  className="w-full accent-blue-600"
+                />
+                <div className={helperClass}>
+                  <span>0%</span>
+                  <span className="font-semibold">{parseFloat(formData.withdrawalRate || '0').toFixed(1)}%</span>
+                  <span>8%</span>
+                </div>
+              </div>
+
+              {/* Slider 4 - Monatliche Sparrate */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className={labelClass}>Monatliche Sparrate</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="10"
+                      value={formData.monthlySavings}
+                      onChange={(e) => setFormData({ ...formData, monthlySavings: e.target.value })}
+                      className={numberInputClass('w-20')}
+                    />
+                    <span className="text-sm text-slate-300">€</span>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="3000"
+                  step="50"
+                  value={Number(formData.monthlySavings || '0')}
+                  onChange={(e) => setFormData({ ...formData, monthlySavings: e.target.value })}
+                  className="w-full accent-blue-600"
+                />
+                <div className={helperClass}>
+                  <span>0 €</span>
+                  <span className="font-semibold">{formatEuro(Number(formData.monthlySavings || '0'))} €</span>
+                  <span>3.000 €</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile/Tablet - Original Layout */}
+            <div className="xl:hidden w-full grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+              <div className="w-full space-y-2">
             <label className={labelClass}>Inflationsrate (%)</label>
             <div className="flex items-center gap-3">
               <input
@@ -3998,7 +4911,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                 step="0.1"
                 value={formData.inflationRate}
                 onChange={(e) => setFormData({ ...formData, inflationRate: e.target.value })}
-                className={numberInputClass()}
+                    className={numberInputClass('w-20')}
               />
             </div>
             <div className={helperClass}>
@@ -4008,7 +4921,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
             </div>
           </div>
 
-          <div className="flex-1 min-w-[180px] space-y-2">
+              <div className="w-full space-y-2">
             <label className={labelClass}>Rendite Ansparphase (%)</label>
             <div className="flex items-center gap-3">
               <input
@@ -4027,7 +4940,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                 step="0.1"
                 value={formData.returnRate}
                 onChange={(e) => setFormData({ ...formData, returnRate: e.target.value })}
-                className={numberInputClass()}
+                    className={numberInputClass('w-20')}
               />
             </div>
             <div className={helperClass}>
@@ -4037,7 +4950,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
             </div>
           </div>
 
-          <div className="flex-1 min-w-[180px] space-y-2">
+              <div className="w-full space-y-2">
             <label className={labelClass}>Rendite Entnahmephase (%)</label>
             <div className="flex items-center gap-3">
               <input
@@ -4056,7 +4969,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                 step="0.1"
                 value={formData.withdrawalRate}
                 onChange={(e) => setFormData({ ...formData, withdrawalRate: e.target.value })}
-                className={numberInputClass()}
+                    className={numberInputClass('w-20')}
               />
             </div>
             <div className={helperClass}>
@@ -4066,7 +4979,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
             </div>
           </div>
 
-          <div className="flex-1 min-w-[200px] space-y-2">
+              <div className="w-full space-y-2">
             <label className={labelClass}>Monatliche Sparrate (€)</label>
             <div className="flex items-center gap-3">
               <input
@@ -4084,7 +4997,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                 step="10"
                 value={formData.monthlySavings}
                 onChange={(e) => setFormData({ ...formData, monthlySavings: e.target.value })}
-                className={numberInputClass('w-24')}
+                    className={numberInputClass('w-20')}
               />
             </div>
             <div className={helperClass}>
@@ -4093,15 +5006,485 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
               <span>3.000 €</span>
             </div>
           </div>
+            </div>
+          </div>
+        )
+      }
 
-          <div className="flex items-center gap-2 min-w-[190px]">
+      // Dashboard Desktop Variante mit 2x2 Grid
+      if (isDashboard) {
+        const isLightTheme = dashboardTheme === 'light'
+        return (
+          <div className={wrapperClasses}>
+            {/* Toggle Switches oben einheitlich */}
+            <div className={`w-full flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-4 mb-4 md:mb-6 pb-4 md:pb-6 border-b ${isLightTheme ? 'border-slate-200/50' : 'border-white/10'}`}>
+              {/* Beratungsmodus Toggle */}
+              <label htmlFor="advisory-mode-dashboard" className="flex items-center cursor-pointer">
             <input
               type="checkbox"
+                  id="advisory-mode-dashboard"
+                  checked={advisoryMode}
+                  onChange={(e) => setAdvisoryMode(e.target.checked)}
+                  className="sr-only"
+                />
+                <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out flex-shrink-0 ${
+                  advisoryMode 
+                    ? isLightTheme ? 'bg-blue-600' : 'bg-purple-600'
+                    : isLightTheme ? 'bg-slate-300' : 'bg-white/20'
+                }`}>
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ease-in-out ${
+                    advisoryMode ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </div>
+                <span className={`${checkboxLabelClass} ml-4`}>
+                  Beratungsmodus
+                </span>
+              </label>
+
+              {/* In heutiger Kaufkraft Toggle */}
+              <label htmlFor="purchasing-power-dashboard" className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  id="purchasing-power-dashboard"
               checked={showInCurrentPurchasingPower}
               onChange={(e) => setShowInCurrentPurchasingPower(e.target.checked)}
-              className="h-5 w-5 accent-blue-600"
-            />
-          <span className={`${checkboxLabelClass} whitespace-nowrap`}>In heutiger Kaufkraft</span>
+                  className="sr-only"
+                />
+                <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out flex-shrink-0 ${
+                  showInCurrentPurchasingPower 
+                    ? isLightTheme ? 'bg-blue-600' : 'bg-purple-600'
+                    : isLightTheme ? 'bg-slate-300' : 'bg-white/20'
+                }`}>
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ease-in-out ${
+                    showInCurrentPurchasingPower ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </div>
+                <span className={`${checkboxLabelClass} ml-4`}>In heutiger Kaufkraft</span>
+              </label>
+            </div>
+
+            {/* Sliders - 2x2 GRID für Desktop Dashboard */}
+            <div className="hidden xl:grid grid-cols-2 gap-x-8 gap-y-6">
+              {/* Slider 1 - Inflationsrate */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className={labelClass}>Inflationsrate</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="5"
+                      step="0.1"
+                      value={formData.inflationRate}
+                      onChange={(e) => setFormData({ ...formData, inflationRate: e.target.value })}
+                      className={numberInputClass('w-16')}
+                    />
+                    <span className={`text-sm ${isLightTheme ? 'text-slate-600' : 'text-white/60'}`}>%</span>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="5"
+                  step="0.1"
+                  value={formData.inflationRate}
+                  onChange={(e) => setFormData({ ...formData, inflationRate: e.target.value })}
+                  className="w-full accent-blue-400"
+                />
+                <div className={helperClass}>
+                  <span>0%</span>
+                  <span className="font-semibold">{parseFloat(formData.inflationRate || '0').toFixed(1)}%</span>
+                  <span>5%</span>
+                </div>
+              </div>
+
+              {/* Slider 2 - Rendite Ansparphase */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className={labelClass}>Rendite Ansparphase</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="12"
+                      step="0.1"
+                      value={formData.returnRate}
+                      onChange={(e) => setFormData({ ...formData, returnRate: e.target.value })}
+                      className={numberInputClass('w-16')}
+                    />
+                    <span className={`text-sm ${isLightTheme ? 'text-slate-600' : 'text-white/60'}`}>%</span>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="12"
+                  step="0.5"
+                  value={formData.returnRate}
+                  onChange={(e) => setFormData({ ...formData, returnRate: e.target.value })}
+                  className="w-full accent-blue-400"
+                />
+                <div className={helperClass}>
+                  <span>0%</span>
+                  <span className="font-semibold">{parseFloat(formData.returnRate || '0').toFixed(1)}%</span>
+                  <span>12%</span>
+                </div>
+              </div>
+
+              {/* Slider 3 - Rendite Entnahmephase */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className={labelClass}>Rendite Entnahmephase</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="8"
+                      step="0.1"
+                      value={formData.withdrawalRate}
+                      onChange={(e) => setFormData({ ...formData, withdrawalRate: e.target.value })}
+                      className={numberInputClass('w-16')}
+                    />
+                    <span className={`text-sm ${isLightTheme ? 'text-slate-600' : 'text-white/60'}`}>%</span>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="8"
+                  step="0.5"
+                  value={formData.withdrawalRate}
+                  onChange={(e) => setFormData({ ...formData, withdrawalRate: e.target.value })}
+                  className="w-full accent-blue-400"
+                />
+                <div className={helperClass}>
+                  <span>0%</span>
+                  <span className="font-semibold">{parseFloat(formData.withdrawalRate || '0').toFixed(1)}%</span>
+                  <span>8%</span>
+                </div>
+              </div>
+
+              {/* Slider 4 - Monatliche Sparrate */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className={labelClass}>Monatliche Sparrate</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="10"
+                      value={formData.monthlySavings}
+                      onChange={(e) => setFormData({ ...formData, monthlySavings: e.target.value })}
+                      className={numberInputClass('w-20')}
+                    />
+                    <span className={`text-sm ${isLightTheme ? 'text-slate-600' : 'text-white/60'}`}>€</span>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="3000"
+                  step="50"
+                  value={Number(formData.monthlySavings || '0')}
+                  onChange={(e) => setFormData({ ...formData, monthlySavings: e.target.value })}
+                  className="w-full accent-blue-400"
+                />
+                <div className={helperClass}>
+                  <span>0 €</span>
+                  <span className="font-semibold">{formatEuro(Number(formData.monthlySavings || '0'))} €</span>
+                  <span>3.000 €</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile/Tablet Dashboard - Original Layout */}
+            <div className="xl:hidden w-full grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+              <div className="w-full space-y-2">
+                <label className={labelClass}>Inflationsrate (%)</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="0"
+                    max="5"
+                    step="0.1"
+                    value={formData.inflationRate}
+                    onChange={(e) => setFormData({ ...formData, inflationRate: e.target.value })}
+                    className="flex-1 accent-blue-600"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    max="5"
+                    step="0.1"
+                    value={formData.inflationRate}
+                    onChange={(e) => setFormData({ ...formData, inflationRate: e.target.value })}
+                    className={numberInputClass('w-20')}
+                  />
+                </div>
+                <div className={helperClass}>
+                  <span className="text-left">0%</span>
+                  <span className="font-semibold text-center">{parseFloat(formData.inflationRate || '0').toFixed(1)}%</span>
+                  <span className="text-right">5%</span>
+                </div>
+              </div>
+
+              <div className="w-full space-y-2">
+                <label className={labelClass}>Rendite Ansparphase (%)</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="0"
+                    max="12"
+                    step="0.1"
+                    value={formData.returnRate}
+                    onChange={(e) => setFormData({ ...formData, returnRate: e.target.value })}
+                    className="flex-1 accent-blue-600"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    max="12"
+                    step="0.1"
+                    value={formData.returnRate}
+                    onChange={(e) => setFormData({ ...formData, returnRate: e.target.value })}
+                    className={numberInputClass('w-20')}
+                  />
+                </div>
+                <div className={helperClass}>
+                  <span className="text-left">0%</span>
+                  <span className="font-semibold text-center">{parseFloat(formData.returnRate || '0').toFixed(1)}%</span>
+                  <span className="text-right">12%</span>
+                </div>
+              </div>
+
+              <div className="w-full space-y-2">
+                <label className={labelClass}>Rendite Entnahmephase (%)</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="0"
+                    max="8"
+                    step="0.1"
+                    value={formData.withdrawalRate}
+                    onChange={(e) => setFormData({ ...formData, withdrawalRate: e.target.value })}
+                    className="flex-1 accent-blue-600"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    max="8"
+                    step="0.1"
+                    value={formData.withdrawalRate}
+                    onChange={(e) => setFormData({ ...formData, withdrawalRate: e.target.value })}
+                    className={numberInputClass('w-20')}
+                  />
+                </div>
+                <div className={helperClass}>
+                  <span className="text-left">0%</span>
+                  <span className="font-semibold text-center">{parseFloat(formData.withdrawalRate || '0').toFixed(1)}%</span>
+                  <span className="text-right">8%</span>
+                </div>
+              </div>
+
+              <div className="w-full space-y-2">
+                <label className={labelClass}>Monatliche Sparrate (€)</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="0"
+                    max="3000"
+                    step="10"
+                    value={Number(formData.monthlySavings || '0')}
+                    onChange={(e) => setFormData({ ...formData, monthlySavings: e.target.value })}
+                    className="flex-1 accent-blue-600"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    step="10"
+                    value={formData.monthlySavings}
+                    onChange={(e) => setFormData({ ...formData, monthlySavings: e.target.value })}
+                    className={numberInputClass('w-20')}
+                  />
+                </div>
+                <div className={helperClass}>
+                  <span className="text-left">0 €</span>
+                  <span className="font-semibold text-center">{formatEuro(Number(formData.monthlySavings || '0'))} €</span>
+                  <span className="text-right">3.000 €</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      return (
+        <div className={wrapperClasses}>
+          {/* Toggle Switches oben einheitlich */}
+          <div className={`w-full flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-4 mb-4 md:mb-6 pb-4 md:pb-6 border-b ${isDashboard ? 'border-white/10' : 'border-gray-200'}`}>
+            {/* Beratungsmodus Toggle */}
+            <label htmlFor="advisory-mode" className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                id="advisory-mode"
+                checked={advisoryMode}
+                onChange={(e) => setAdvisoryMode(e.target.checked)}
+                className="sr-only"
+              />
+              <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out flex-shrink-0 ${
+                advisoryMode 
+                  ? isDashboard ? 'bg-purple-600' : 'bg-blue-600'
+                  : isDashboard ? 'bg-white/20' : 'bg-gray-300'
+              }`}>
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ease-in-out ${
+                  advisoryMode ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </div>
+              <span className={`ml-3 ${checkboxLabelClass}`}>
+                Beratungsmodus
+              </span>
+            </label>
+
+            {/* In heutiger Kaufkraft Toggle */}
+            <label htmlFor="purchasing-power" className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                id="purchasing-power"
+                checked={showInCurrentPurchasingPower}
+                onChange={(e) => setShowInCurrentPurchasingPower(e.target.checked)}
+                className="sr-only"
+              />
+              <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out flex-shrink-0 ${
+                showInCurrentPurchasingPower 
+                  ? isDashboard ? 'bg-purple-600' : 'bg-blue-600'
+                  : isDashboard ? 'bg-white/20' : 'bg-gray-300'
+              }`}>
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ease-in-out ${
+                  showInCurrentPurchasingPower ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </div>
+              <span className={`ml-3 ${checkboxLabelClass} whitespace-nowrap`}>
+                In heutiger Kaufkraft
+              </span>
+            </label>
+          </div>
+
+          {/* Slider Controls */}
+          <div className="w-full grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
+            <div className="w-full space-y-2">
+              <label className={labelClass}>Inflationsrate (%)</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="5"
+                  step="0.1"
+                  value={formData.inflationRate}
+                  onChange={(e) => setFormData({ ...formData, inflationRate: e.target.value })}
+                  className="flex-1 accent-blue-600"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  max="5"
+                  step="0.1"
+                  value={formData.inflationRate}
+                  onChange={(e) => setFormData({ ...formData, inflationRate: e.target.value })}
+                  className={numberInputClass('w-20')}
+                />
+              </div>
+              <div className={helperClass}>
+                <span className="text-left">0%</span>
+                <span className="font-semibold text-center">{parseFloat(formData.inflationRate || '0').toFixed(1)}%</span>
+                <span className="text-right">5%</span>
+              </div>
+            </div>
+
+            <div className="w-full space-y-2">
+              <label className={labelClass}>Rendite Ansparphase (%)</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="12"
+                  step="0.1"
+                  value={formData.returnRate}
+                  onChange={(e) => setFormData({ ...formData, returnRate: e.target.value })}
+                  className="flex-1 accent-blue-600"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  max="12"
+                  step="0.1"
+                  value={formData.returnRate}
+                  onChange={(e) => setFormData({ ...formData, returnRate: e.target.value })}
+                  className={numberInputClass('w-20')}
+                />
+              </div>
+              <div className={helperClass}>
+                <span className="text-left">0%</span>
+                <span className="font-semibold text-center">{parseFloat(formData.returnRate || '0').toFixed(1)}%</span>
+                <span className="text-right">12%</span>
+              </div>
+            </div>
+
+            <div className="w-full space-y-2">
+              <label className={labelClass}>Rendite Entnahmephase (%)</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="8"
+                  step="0.1"
+                  value={formData.withdrawalRate}
+                  onChange={(e) => setFormData({ ...formData, withdrawalRate: e.target.value })}
+                  className="flex-1 accent-blue-600"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  max="8"
+                  step="0.1"
+                  value={formData.withdrawalRate}
+                  onChange={(e) => setFormData({ ...formData, withdrawalRate: e.target.value })}
+                  className={numberInputClass('w-20')}
+                />
+              </div>
+              <div className={helperClass}>
+                <span className="text-left">0%</span>
+                <span className="font-semibold text-center">{parseFloat(formData.withdrawalRate || '0').toFixed(1)}%</span>
+                <span className="text-right">8%</span>
+              </div>
+            </div>
+
+            <div className="w-full space-y-2">
+              <label className={labelClass}>Monatliche Sparrate (€)</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="3000"
+                  step="10"
+                  value={Number(formData.monthlySavings || '0')}
+                  onChange={(e) => setFormData({ ...formData, monthlySavings: e.target.value })}
+                  className="flex-1 accent-blue-600"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="10"
+                  value={formData.monthlySavings}
+                  onChange={(e) => setFormData({ ...formData, monthlySavings: e.target.value })}
+                  className={numberInputClass('w-20')}
+                />
+              </div>
+              <div className={helperClass}>
+                <span className="text-left">0 €</span>
+                <span className="font-semibold text-center">{formatEuro(Number(formData.monthlySavings || '0'))} €</span>
+                <span className="text-right">3.000 €</span>
+              </div>
+            </div>
           </div>
         </div>
       )
@@ -4120,7 +5503,237 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
         ? 'Steuern private Vorsorge'
         : 'Steuerlast private Vorsorge'
       : 'Kapitalsteuer private Vorsorge'
-    const renderDashboardView = () => (
+    const renderDashboardView = () => {
+      const isLightTheme = dashboardTheme === 'light'
+      
+      // Helle Glassmorphism-Variante
+      if (isLightTheme) {
+        return (
+          <div className="space-y-8">
+            {/* Hauptcontainer mit Glassmorphism - mehr Transparenz */}
+            <div className="rounded-[32px] bg-white/30 backdrop-blur-2xl border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.12)] relative overflow-hidden">
+              {/* Dynamische Gradient-Overlays für Glassmorphism-Effekt */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-br from-blue-100/40 via-blue-50/30 to-transparent rounded-full blur-3xl" />
+                <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-gradient-to-tr from-emerald-100/30 via-emerald-50/20 to-transparent rounded-full blur-3xl" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-radial from-purple-50/20 via-transparent to-transparent rounded-full blur-3xl" />
+              </div>
+              
+              <div className="relative p-8 md:p-10 lg:p-12 space-y-10">
+                <div className="flex flex-col lg:flex-row gap-12 lg:items-start">
+                  <div className="flex-1 space-y-6">
+                    <div className="space-y-4">
+                      <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">
+                        Finance Made Simple
+                      </span>
+                      <h2 className="text-3xl md:text-4xl font-semibold leading-tight text-slate-900">
+                        Rentenlücke verstehen und schließen
+                      </h2>
+                      <p className="text-base md:text-lg text-slate-600 max-w-xl">
+                        deine einfache Rentenübersicht
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      {['Individuelle Analyse', 'Live-Simulation'].map((label) => (
+                        <span
+                          key={label}
+                          className="rounded-full bg-slate-100/80 backdrop-blur-sm border border-slate-200/60 px-4 py-2 text-xs font-medium tracking-wide text-slate-700"
+                        >
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="text-sm text-slate-500">
+                      <span className="font-semibold text-slate-700">Stand:</span> {new Date().toLocaleDateString('de-DE')}
+                    </div>
+                  </div>
+
+                  {/* Quick-Preview Card mit Glassmorphism - mehr Transparenz */}
+                  <div className="w-full lg:w-auto lg:min-w-[320px]">
+                    <div className="relative rounded-3xl bg-white/40 backdrop-blur-2xl border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.1)] p-6 space-y-6">
+                      {/* Subtiler innerer Glow */}
+                      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 to-transparent pointer-events-none" />
+                      <div className="relative space-y-2">
+                        <p className="text-sm uppercase tracking-[0.3em] text-slate-600">Quick-Preview</p>
+                        <p className="text-lg font-semibold text-slate-900">Deckungsgrad deiner Zielrente</p>
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-xs text-slate-600 mb-2">
+                          <span>aktuell</span>
+                          <span className="font-semibold text-slate-900">{coveragePercentDisplay.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</span>
+                        </div>
+                        <div className="h-3 rounded-full bg-slate-100 overflow-hidden border border-slate-200/50">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-blue-400 to-blue-500 transition-all duration-700"
+                            style={{ width: `${coveragePercentDisplay}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="relative grid grid-cols-2 gap-4 text-sm">
+                        <div className="space-y-1">
+                          <p className="text-slate-600">Bisher gedeckt</p>
+                          <p className="text-lg font-semibold text-slate-900">{formatEuro(combinedExistingNet)} €</p>
+                          <p className="text-xs text-slate-500">gesetzlich + privat</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-slate-600">Ziel (Netto)</p>
+                          <p className="text-lg font-semibold text-slate-900">{formatEuro(comparisonTarget)} €</p>
+                          <p className="text-xs text-slate-500">monatliches Wunschziel</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-slate-600">Aktuelle Lücke</p>
+                          <p className="text-lg font-semibold text-rose-600">{formatEuro(gapBeforeSavingsDisplay)} €</p>
+                          <p className="text-xs text-slate-500">vor neuer Sparrate</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-slate-600">Kapitalbedarf gesamt</p>
+                          <p className="text-lg font-semibold text-slate-900">{formatEuro(baseCapitalRequirementDisplayValue)} €</p>
+                          <p className="text-xs text-slate-500">für {yearsInRetirement} Jahre Ruhestand</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Simulation anpassen mit Glassmorphism - mehr Transparenz */}
+                <div className="relative rounded-3xl bg-white/35 backdrop-blur-2xl border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.1)] px-6 py-5">
+                  <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+                  <div className="relative">
+                    <p className="text-xs uppercase tracking-[0.3em] text-slate-600 mb-3">Simulation anpassen</p>
+                    {renderControlPanel('dashboard')}
+                  </div>
+                </div>
+
+                {/* Zwei Hauptkacheln mit Glassmorphism */}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {/* Linke Kachel - Rentenlücke */}
+                  <div className="relative rounded-3xl bg-white/40 backdrop-blur-2xl border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.1)] px-6 py-5 space-y-5">
+                    <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/15 to-transparent pointer-events-none" />
+                    <div className="relative">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm uppercase tracking-[0.3em] text-slate-500">Deine aktuelle Rentenlücke</p>
+                          <p className="text-2xl font-semibold text-slate-900 mt-1">{formatEuro(gapBeforeSavingsDisplay)} €</p>
+                        </div>
+                        <div className="rounded-full bg-slate-100/80 backdrop-blur-sm border border-slate-200/60 px-3 py-1 text-xs text-slate-700">
+                          Zielrente {formatEuro(comparisonTarget)} €
+                        </div>
+                      </div>
+                      <div className="space-y-3 text-sm">
+                        <div className="flex justify-between text-slate-600">
+                          <span>{statutoryShortLabel} (netto)</span>
+                          <span className="text-slate-900 font-medium">{formatEuro(statutoryDisplay)} €</span>
+                        </div>
+                        <div className="flex justify-between text-slate-600">
+                          <span>Private Vorsorge (netto)</span>
+                          <span className="text-slate-900 font-medium">{formatEuro(manualNetExisting)} €</span>
+                        </div>
+                        <div className="flex justify-between text-rose-600 font-semibold pt-2 border-t border-white/30">
+                          <span>Versorgungslücke</span>
+                          <span>{formatEuro(gapBeforeSavingsDisplay)} €</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Rechte Kachel - Sparrate */}
+                  <div className="relative rounded-3xl bg-white/40 backdrop-blur-2xl border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.1)] px-6 py-5 space-y-5">
+                    <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/15 to-transparent pointer-events-none" />
+                    <div className="relative">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm uppercase tracking-[0.3em] text-slate-500">Was leistet die Sparrate?</p>
+                          <p className="text-2xl font-semibold text-slate-900 mt-1">
+                            {formatEuro(additionalNetIncomeDisplay)} € zusätzliche Netto-Rente
+                          </p>
+                          <p className="text-xs text-slate-500">nach Steuern und Abzügen</p>
+                        </div>
+                        <div className="rounded-full bg-emerald-100/80 backdrop-blur-sm border border-emerald-200/60 px-3 py-1 text-xs text-emerald-700 font-semibold">
+                          Deckung {savingsCoverage.coversPercent.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="rounded-2xl bg-white/30 backdrop-blur-xl border border-white/40 p-3 shadow-sm">
+                          <p className="text-xs text-slate-600 uppercase tracking-wide mb-1">Monatliche Sparrate</p>
+                          <p className="text-lg font-semibold text-slate-900">{formatEuro(parseFloat(formData.monthlySavings || '0'))} €</p>
+                        </div>
+                        <div className="rounded-2xl bg-white/30 backdrop-blur-xl border border-white/40 p-3 shadow-sm">
+                          <p className="text-xs text-slate-600 uppercase tracking-wide mb-1">Netto-Zusatzrente</p>
+                          <p className="text-lg font-semibold text-emerald-600">{formatEuro(additionalNetIncomeDisplay)} €</p>
+                        </div>
+                        <div className="rounded-2xl bg-white/30 backdrop-blur-xl border border-white/40 p-3 shadow-sm">
+                          <p className="text-xs text-slate-600 uppercase tracking-wide mb-1">Restlücke</p>
+                          <p className={`text-lg font-semibold ${remainingGapDisplay > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>
+                            {formatEuro(remainingGapDisplay)} €
+                          </p>
+                        </div>
+                        <div className="rounded-2xl bg-white/30 backdrop-blur-xl border border-white/40 p-3 shadow-sm">
+                          <p className="text-xs text-slate-600 uppercase tracking-wide mb-1">Offener Kapitalbedarf</p>
+                          <p className={`text-lg font-semibold ${remainingCapitalRequirementDisplay > 0 ? 'text-slate-900' : 'text-emerald-600'}`}>
+                            {formatEuro(remainingCapitalRequirementDisplay)} €
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-xs text-slate-600 pt-2 border-t border-white/30">
+                        Kapitalbedarf gesamt: <span className="font-semibold text-slate-800">{formatEuro(baseCapitalRequirementDisplayValue)} €</span> · Bereits abgedeckt <span className="font-semibold text-slate-800">{formatEuro(capitalRequirementCoveredDisplayValue)} €</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500">
+                        Berechnung mit Krankenversicherungsbeitrag {kvRatePercent}% (zzgl. Pflegeversicherung {careRatePercent}%).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Weitere Sections mit hellem Theme */}
+            {renderDelayScenarioSection('dashboard')}
+
+            {/* 4 Kacheln mit hellem Glassmorphism - mehr Transparenz */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              <div className="relative rounded-2xl bg-white/35 backdrop-blur-2xl border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.1)] p-6">
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+                <div className="relative">
+                  <p className="text-xs uppercase tracking-wide text-slate-600 mb-2">Aktuelle Lücke</p>
+                  <p className="text-3xl font-semibold text-slate-900">{formatEuro(gapBeforeSavingsDisplay)} €</p>
+                  <p className="text-sm text-slate-600 mt-2">Differenz zwischen Zielrente und bestehender Vorsorge.</p>
+                </div>
+              </div>
+              <div className="relative rounded-2xl bg-emerald-50/30 backdrop-blur-2xl border border-emerald-200/40 shadow-[0_8px_32px_rgba(0,0,0,0.1)] p-6">
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-emerald-50/20 to-transparent pointer-events-none" />
+                <div className="relative">
+                  <p className="text-xs uppercase tracking-wide text-emerald-700 mb-2">Verbleibende Lücke</p>
+                  <p className="text-3xl font-semibold text-emerald-700">{formatEuro(Math.max(0, gapAfterSavingsDisplay))} €</p>
+                  <p className="text-sm text-emerald-700/80 mt-2">Nach Umsetzung der geplanten Sparrate.</p>
+                </div>
+              </div>
+              <div className="relative rounded-2xl bg-blue-50/30 backdrop-blur-2xl border border-blue-200/40 shadow-[0_8px_32px_rgba(0,0,0,0.1)] p-6">
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-50/20 to-transparent pointer-events-none" />
+                <div className="relative">
+                  <p className="text-xs uppercase tracking-wide text-blue-700 mb-2">Deckungsgrad</p>
+                  <p className="text-3xl font-semibold text-blue-700">
+                    {savingsCoverage.coversPercent.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
+                  </p>
+                  <p className="text-sm text-blue-700/80 mt-2">Abgedeckter Anteil der Versorgungslücke.</p>
+                </div>
+              </div>
+              <div className="relative rounded-2xl bg-amber-50/30 backdrop-blur-2xl border border-amber-200/40 shadow-[0_8px_32px_rgba(0,0,0,0.1)] p-6">
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-50/20 to-transparent pointer-events-none" />
+                <div className="relative">
+                  <p className="text-xs uppercase tracking-wide text-amber-700 mb-2">Kapitalbedarf</p>
+                  <p className="text-3xl font-semibold text-amber-700">{formatEuro(baseCapitalRequirementDisplayValue)} €</p>
+                  <p className="text-sm text-amber-700/80 mt-2">
+                    Für {yearsInRetirement > 0 ? `${yearsInRetirement} Jahre Ruhestand` : 'den geplanten Zeitraum'}.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      // Dunkle Variante (Original - unverändert)
+      return (
       <div className="space-y-8">
         <div className="rounded-[32px] bg-gradient-to-br from-[#050A1A] via-[#101E3F] to-[#1A3A7C] text-white shadow-[0_35px_80px_rgba(8,15,40,0.45)] relative overflow-hidden">
           <div className="absolute inset-0 pointer-events-none">
@@ -4135,14 +5748,14 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                     Finance Made Simple
             </span>
                   <h2 className="text-3xl md:text-4xl font-semibold leading-tight">
-                    Rentenlücke verstehen – und smart schließen.
+                    Rentenlücke verstehen und schließen
                   </h2>
                   <p className="text-base md:text-lg text-white/70 max-w-xl">
-                    Klar, modern, messbar. Dein FinTech-Dashboard für Entscheidungen, die wirklich passen – inklusive Live-Simulation und Druckansicht.
+                    deine einfache Rentenübersicht
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  {['Individuelle Analyse', 'Live-Simulation', 'Transparente Kosten', 'Beratung per Video'].map((label) => (
+                  {['Individuelle Analyse', 'Live-Simulation'].map((label) => (
                     <span
                       key={label}
                       className="rounded-full bg-white/10 border border-white/15 px-4 py-2 text-xs font-medium tracking-wide text-white/80 backdrop-blur"
@@ -4151,17 +5764,8 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                     </span>
                   ))}
                 </div>
-                <div className="flex flex-wrap items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setOverviewMode('detail')}
-                    className="px-5 py-2.5 rounded-full bg-white text-[#0b1120] font-semibold text-sm shadow-lg shadow-black/20 hover:shadow-xl hover:-translate-y-0.5 transition transform"
-                  >
-                    Detailansicht öffnen
-                  </button>
                   <div className="text-sm text-white/60">
                     <span className="font-semibold text-white">Stand:</span> {new Date().toLocaleDateString('de-DE')}
-                  </div>
           </div>
         </div>
 
@@ -4588,8 +6192,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-6">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Berechnete Werte</h3>
+            <CollapsibleSection title="Berechnete Werte" defaultOpen={false}>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {calculationVariableRows.map((row) => (
                   <div key={row.key} className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 shadow-sm space-y-1">
@@ -4598,15 +6201,43 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                   </div>
                 ))}
               </div>
-            </div>
+            </CollapsibleSection>
           </div>
         </div>
       </div>
     )
+    }
 
     const renderOverviewHeader = (title: string) => (
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
+        <div className="flex items-center gap-3">
+          {overviewMode === 'dashboard' && (
+            <div className="inline-flex rounded-full bg-slate-100 p-1">
+              <button
+                type="button"
+                onClick={() => setDashboardTheme('dark')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-full transition ${
+                  dashboardTheme === 'dark'
+                    ? 'bg-slate-700 text-white shadow'
+                    : 'text-slate-600 hover:text-slate-800'
+                }`}
+              >
+                Dunkel
+              </button>
+              <button
+                type="button"
+                onClick={() => setDashboardTheme('light')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-full transition ${
+                  dashboardTheme === 'light'
+                    ? 'bg-white text-slate-900 shadow'
+                    : 'text-slate-600 hover:text-slate-800'
+                }`}
+              >
+                Hell
+              </button>
+            </div>
+          )}
         <div className="inline-flex rounded-full bg-slate-100 p-1">
           <button
             type="button"
@@ -4630,6 +6261,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
           >
             Dashboard
           </button>
+          </div>
         </div>
       </div>
     )
@@ -4646,7 +6278,14 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
     return (
       <div className="space-y-6">
         {renderOverviewHeader('Gesamtübersicht')}
-        {renderControlPanel()}
+        {/* Desktop Detail View */}
+        <div className="hidden xl:block">
+          {renderControlPanel('detail-desktop')}
+        </div>
+        {/* Mobile/Tablet Detail View */}
+        <div className="xl:hidden">
+          {renderControlPanel('default')}
+        </div>
 
         {(targetBaseValue > 0 || totalProvisionDisplay > 0 || statutoryDisplay > 0 || gapDisplay > 0) && (
           <div className="border rounded-lg p-6 bg-white">
@@ -4934,12 +6573,126 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
 
         {(currentValue !== null || provisions.length > 0 || targetBaseValue > 0) && (
           <div className="border-t pt-6 mt-6">
-            <div className="bg-gray-50 border rounded-lg p-4 space-y-3">
-              <h4 className="font-semibold text-gray-900">
-                Detailbetrachtung {showInCurrentPurchasingPower ? '(Inflation berücksichtigt)' : '(Nominalwerte)'}
-              </h4>
+            <CollapsibleSection 
+              title={`Detailbetrachtung ${showInCurrentPurchasingPower ? '(Inflation berücksichtigt)' : '(Nominalwerte)'}`}
+              defaultOpen={false}
+            >
 
-              <div className="grid gap-4 md:grid-cols-2 mt-2">
+              {/* Desktop Kacheln */}
+              <div className="hidden xl:grid grid-cols-2 gap-6 mt-2">
+                {/* Linke Kachel - Rentenlücke */}
+                <div className="bg-gradient-to-br from-[#1E293B] via-[#0F172A] to-[#1E293B] rounded-2xl p-8 border border-slate-700/50 shadow-xl">
+                  <div className="flex items-start justify-between mb-8">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-400 mb-3">
+                        Deine aktuelle Rentenlücke
+                      </p>
+                      <h2 className="text-6xl font-bold text-white mb-2">
+                        {formatEuro(gapBeforeSavingsDisplay)} €
+                      </h2>
+                    </div>
+                    <div className="px-3 py-1.5 bg-blue-600/20 rounded-lg text-xs border border-blue-500/30 backdrop-blur-sm">
+                      <span className="text-blue-300">Zielrente</span>
+                      <span className="ml-2 font-semibold text-blue-100">{formatEuro(comparisonTarget)} €</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pb-6 border-b border-slate-700/50">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-300">{statutoryShortLabel} (netto)</span>
+                      <span className="text-lg font-semibold text-white">{formatEuro(statutoryDisplay)} €</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-300">Private Vorsorge (netto)</span>
+                      <span className="text-lg font-semibold text-white">{formatEuro(manualNetExisting)} €</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-6">
+                    <span className="text-base font-bold text-orange-400">Versorgungslücke</span>
+                    <span className="text-2xl font-bold text-orange-400">{formatEuro(gapBeforeSavingsDisplay)} €</span>
+                  </div>
+                </div>
+
+                {/* Rechte Kachel - Sparrate */}
+                <div className="bg-gradient-to-br from-[#1E293B] via-[#0F172A] to-[#1E293B] rounded-2xl p-8 border border-slate-700/50 shadow-xl">
+                  <div className="flex items-start justify-between mb-8">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-400 mb-3">
+                        Was leistet die Sparrate?
+                      </p>
+                      <h2 className="text-6xl font-bold text-emerald-400 mb-2">
+                        {formatEuro(additionalNetIncomeDisplay)} €
+                      </h2>
+                      <p className="text-sm text-slate-300">
+                        zusätzliche Netto-Rente nach Steuern und Abzügen
+                      </p>
+                    </div>
+                    <div className="px-4 py-2 bg-emerald-500/20 rounded-full border border-emerald-400/40 backdrop-blur-sm">
+                      <span className="text-xs font-semibold text-emerald-400">
+                        Deckung {savingsCoverage.coversPercent.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 2x2 Grid für die Zahlen */}
+                  <div className="grid grid-cols-2 gap-6 mb-6">
+                    {/* Box 1 - Monatliche Sparrate */}
+                    <div className="bg-slate-800/40 rounded-xl p-6 border border-slate-700/50 backdrop-blur-sm">
+                      <p className="text-xs text-slate-400 uppercase tracking-wide mb-3">
+                        Monatliche Sparrate
+                      </p>
+                      <p className="text-3xl font-bold text-white">
+                        {formatEuro(parseFloat(formData.monthlySavings || '0'))} €
+                      </p>
+                    </div>
+
+                    {/* Box 2 - Netto-Zusatzrente */}
+                    <div className="bg-slate-800/40 rounded-xl p-6 border border-slate-700/50 backdrop-blur-sm">
+                      <p className="text-xs text-slate-400 uppercase tracking-wide mb-3">
+                        Netto-Zusatzrente
+                      </p>
+                      <p className="text-3xl font-bold text-emerald-400">
+                        {formatEuro(additionalNetIncomeDisplay)} €
+                      </p>
+                    </div>
+
+                    {/* Box 3 - Restlücke */}
+                    <div className="bg-slate-800/40 rounded-xl p-6 border border-slate-700/50 backdrop-blur-sm">
+                      <p className="text-xs text-slate-400 uppercase tracking-wide mb-3">
+                        Restlücke
+                      </p>
+                      <p className={`text-3xl font-bold ${remainingGapDisplay > 0 ? 'text-orange-400' : 'text-emerald-400'}`}>
+                        {formatEuro(remainingGapDisplay)} €
+                      </p>
+                    </div>
+
+                    {/* Box 4 - Offener Kapitalbedarf */}
+                    <div className="bg-slate-800/40 rounded-xl p-6 border border-slate-700/50 backdrop-blur-sm">
+                      <p className="text-xs text-slate-400 uppercase tracking-wide mb-3">
+                        Offener Kapitalbedarf
+                      </p>
+                      <p className={`text-3xl font-bold ${remainingCapitalRequirementDisplay > 0 ? 'text-white' : 'text-emerald-400'}`}>
+                        {formatEuro(remainingCapitalRequirementDisplay)} €
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Footer Info */}
+                  <div className="space-y-2 pt-4 border-t border-slate-700/50">
+                    <p className="text-sm text-slate-300">
+                      Kapitalbedarf gesamt: <span className="font-semibold text-white">{formatEuro(baseCapitalRequirementDisplayValue)} €</span> · 
+                      Bereits abgedeckt <span className="font-semibold text-white">{formatEuro(capitalRequirementCoveredDisplayValue)} €</span>
+                    </p>
+                    <p className="text-sm text-slate-400">
+                      Berechnung mit Krankenversicherungsbeitrag {kvRatePercent}% (zzgl. Pflegeversicherung {careRatePercent}%).
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mobile/Tablet Kacheln */}
+              <div className="xl:hidden grid gap-4 md:grid-cols-2 mt-2">
                 <div className="rounded-2xl border border-red-100 bg-red-50 p-4 space-y-1">
                   <p className="text-xs font-semibold uppercase tracking-wide text-red-700">Aktuelle Rentenlücke</p>
                   <p className="text-2xl font-bold text-red-600">{formatEuro(gapBeforeSavingsDisplay)} €</p>
@@ -4958,119 +6711,141 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                 </div>
                 </div>
 
-              <div className="mt-6 space-y-4 text-sm">
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 flex items-center justify-between">
-                  <span className="text-gray-600 font-medium">1. Notwendige monatliche Rente</span>
-                  <span className="text-lg font-semibold text-gray-900">{formatEuro(comparisonTarget)} €</span>
+              <div className="mt-6 space-y-5 text-sm">
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-700 font-semibold">1. Notwendige monatliche Rente</span>
+                    <InfoButton content="Dies ist die Zielrente, die du im Ruhestand benötigst, um deinen gewünschten Lebensstandard zu halten. Sie wird basierend auf deinen Eingaben berechnet." />
                   </div>
+                  <span className="text-xl font-bold text-gray-900">{formatEuro(comparisonTarget)} €</span>
+                </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-2">
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-3 shadow-sm">
                   <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-gray-600 font-medium">2. {statutoryLabel}</p>
-                      <p className="text-xs text-gray-400">Brutto-Wert inkl. Hochrechnung</p>
+                    <div className="flex items-start gap-2">
+                      <div>
+                        <p className="text-gray-700 font-semibold flex items-center gap-2">
+                          2. {statutoryLabel}
+                          <InfoButton content={`Dies ist deine ${isCivilServant ? 'Beamtenpension' : 'gesetzliche Rente'} zum Rentenbeginn. Der Wert wird hochgerechnet, um die erwartete Rente zum Renteneintrittsalter zu zeigen.`} />
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">Brutto-Wert inkl. Hochrechnung</p>
+                      </div>
                     </div>
-                    <span className="text-lg font-semibold text-gray-900">{formatEuro(statutoryGrossDisplay)} €</span>
+                    <span className="text-xl font-bold text-gray-900">{formatEuro(statutoryGrossDisplay)} €</span>
                   </div>
-                  <div className="space-y-1 text-xs text-gray-500">
-                    <div className="flex justify-between">
-                      <span>Sozialabzüge (KV/PV)</span>
-                      <span>-{formatEuro(contributionsDisplay)} €</span>
+                  <div className="space-y-2 text-xs text-gray-600 pt-2 border-t border-gray-100">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span>Sozialabzüge (KV/PV)</span>
+                        <InfoButton content={`Von der gesetzlichen Rente werden Sozialabgaben abgezogen: Krankenversicherung (KV) ${kvRatePercent}% und Pflegeversicherung (PV) ${careRatePercent}%. Diese werden auf den Bruttobetrag angewendet.`} />
+                      </div>
+                      <span className="font-medium text-gray-700">-{formatEuro(contributionsDisplay)} €</span>
                     </div>
-                    <div className="flex justify-between text-[11px] text-gray-400">
+                    <div className="flex justify-between text-[11px] text-gray-400 pl-7">
                       <span>Ansatz: KV {kvRatePercent}% · PV {careRatePercent}%</span>
                       <span />
                     </div>
-                    <div className="flex justify-between">
-                      <span>Steuern (ESt)</span>
-                    <span>-{formatEuro(taxDisplay)} €</span>
-                  </div>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span>Steuern (ESt)</span>
+                        <InfoButton content="Die Einkommensteuer wird auf den steuerpflichtigen Teil der Rente berechnet. Der Freibetrag wird dabei berücksichtigt. Die Berechnung erfolgt nach dem geltenden Steuertarif." />
+                      </div>
+                      <span className="font-medium text-gray-700">-{formatEuro(taxDisplay)} €</span>
+                    </div>
                     {hasIncomeTaxPrivate && (
-                  <div className="flex justify-between text-[11px] text-gray-400">
+                      <div className="flex justify-between text-[11px] text-gray-400 pl-7">
                         <span>Gesamtsteuer inkl. privater Vorsorge</span>
                         <span>-{formatEuro(combinedTaxMonthlyDisplay)} €</span>
-                  </div>
+                      </div>
                     )}
                     {hasIncomeTaxPrivate && (
-                      <div className="flex justify-between text-[11px] text-gray-400">
+                      <div className="flex justify-between text-[11px] text-gray-400 pl-7">
                         <span>Mehrsteuer durch private Vorsorge</span>
                         <span>-{formatEuro(privateIncomeTaxDisplay)} €</span>
                       </div>
                     )}
-                  <div className="flex justify-between text-[11px] text-gray-400">
-                      <span>Steuerpflichtiger Anteil {taxableShare.toFixed(1)}% · Freibetrag {formatEuro(annualAllowance / 12)} €/mtl.</span>
-                  </div>
-                    <div className="flex justify-between font-semibold text-gray-700">
-                      <span>Netto gesetzliche Rente</span>
-                    <span>{formatEuro(statutoryDisplay)} €</span>
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                      <span className="font-semibold text-gray-800">Netto gesetzliche Rente</span>
+                      <span className="font-bold text-gray-900">{formatEuro(statutoryDisplay)} €</span>
+                    </div>
                   </div>
                 </div>
-                  </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-2">
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-3 shadow-sm">
                   <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-gray-600 font-medium">3. Bestehende private Vorsorge</p>
-                      <p className="text-xs text-gray-400">Brutto-Werte inkl. Sparprodukte</p>
-                            </div>
-                    <span className="text-lg font-semibold text-gray-900">
+                    <div className="flex items-start gap-2">
+                      <div>
+                        <p className="text-gray-700 font-semibold flex items-center gap-2">
+                          3. Bestehende private Vorsorge
+                          <InfoButton content="Dies sind alle privaten Vorsorgeprodukte, die du bereits hast (z.B. Riester-Rente, private Rentenversicherung, etc.). Die Werte werden zum Rentenbeginn hochgerechnet." />
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">Brutto-Werte inkl. Sparprodukte</p>
+                      </div>
+                    </div>
+                    <span className="text-xl font-bold text-gray-900">
                       {formatEuro(manualProvisionDisplay + storedSavingsDisplay)} €
                     </span>
-                            </div>
+                  </div>
                   {existingProvisionDetails.length > 0 ? (
-                    <div className="rounded-xl border border-gray-200 bg-white/80 text-xs text-gray-600 divide-y divide-gray-200">
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-600 divide-y divide-gray-200">
                       {existingProvisionDetails.map((item) => (
-                        <div key={item.id} className="px-3 py-2 flex items-center justify-between gap-4">
+                        <div key={item.id} className="px-3 py-2.5 flex items-center justify-between gap-4">
                           <div>
                             <p className="font-semibold text-gray-700">{item.label}</p>
                             <p className="text-[11px] uppercase tracking-wide text-gray-400">{item.type}</p>
-                            </div>
+                          </div>
                           <div className="text-right">
                             <p className="font-semibold text-gray-700">{formatEuro(item.amount)} €</p>
                             <p className="text-[11px] text-gray-400">monatlich</p>
                           </div>
-                    </div>
+                        </div>
                       ))}
                     </div>
                   ) : (
                     <p className="text-xs text-gray-400 italic">Keine privaten Vorsorgeprodukte hinterlegt.</p>
                   )}
-                  <div className="space-y-1 text-xs text-gray-500">
-                    <div className="flex justify-between">
-                      <span>Sozialabzüge (nur bAV)</span>
-                      <span className={`${privateSvDeduction > 0 ? 'text-rose-600 font-semibold' : 'text-gray-400'}`}>
+                  <div className="space-y-2 text-xs text-gray-600 pt-2 border-t border-gray-100">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span>Sozialabzüge (nur bAV)</span>
+                        <InfoButton content="Betriebliche Altersvorsorge (bAV) ist sozialversicherungspflichtig. Auf den Betrag oberhalb des Freibetrags von 187,25 € werden Sozialabgaben fällig." />
+                      </div>
+                      <span className={`font-medium ${privateSvDeduction > 0 ? 'text-rose-600' : 'text-gray-400'}`}>
                         -{formatEuro(privateSvDeduction)} €
                       </span>
-                  </div>
-                  {privateSvDeduction > 0 && (
-                      <div className="flex justify-between text-[11px] text-gray-400">
+                    </div>
+                    {privateSvDeduction > 0 && (
+                      <div className="flex justify-between text-[11px] text-gray-400 pl-7">
                         <span>Freibetrag 187,25 € berücksichtigt</span>
                         <span>{privateSvRatePercent}%</span>
                       </div>
-                  )}
-                    <div className="flex justify-between">
-                      <span>{privateTaxLabel}</span>
-                      <span className={`${manualCapitalTaxDisplayRounded > 0 ? 'text-rose-600 font-semibold' : 'text-gray-400'}`}>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span>{privateTaxLabel}</span>
+                        <InfoButton content="Private Vorsorgeprodukte unterliegen der Besteuerung. Je nach Produkttyp (Riester, Basis-Rente, etc.) werden unterschiedliche Steuersätze angewendet." />
+                      </div>
+                      <span className={`font-medium ${manualCapitalTaxDisplayRounded > 0 ? 'text-rose-600' : 'text-gray-400'}`}>
                         -{formatEuro(manualCapitalTaxDisplayRounded)} €
                       </span>
-                  </div>
+                    </div>
                     {hasIncomeTaxPrivate && (
-                      <div className="flex justify-between text-[11px] text-gray-400">
+                      <div className="flex justify-between text-[11px] text-gray-400 pl-7">
                         <span>davon Einkommensteuer</span>
                         <span>-{formatEuro(privateIncomeTaxDisplay)} €</span>
                       </div>
                     )}
                     {hasCapitalTaxPrivate && (
-                      <div className="flex justify-between text-[11px] text-gray-400">
+                      <div className="flex justify-between text-[11px] text-gray-400 pl-7">
                         <span>davon Kapitalertragsteuer</span>
                         <span>-{formatEuro(privateCapitalTaxDisplay)} €</span>
                       </div>
                     )}
-                    <div className="flex justify-between font-semibold text-gray-700">
-                      <span>Netto bestehende private Vorsorge</span>
-                      <span>{formatEuro(privateNetExistingDisplay)} €</span>
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                      <span className="font-semibold text-gray-800">Netto bestehende private Vorsorge</span>
+                      <span className="font-bold text-gray-900">{formatEuro(privateNetExistingDisplay)} €</span>
                     </div>
-                    <div className="flex justify-between text-[11px] text-gray-400">
+                    <div className="flex justify-between text-[11px] text-gray-400 pt-1">
                       <span>Durchschnittssteuer (ohne → mit privat)</span>
                       <span>
                         {formatPercent(provisionTaxBreakdown.baseAverageRate)} →{' '}
@@ -5085,41 +6860,55 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                 </div>
 
                 {projectedSavingsDisplay > 0 && (
-                  <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 space-y-3">
+                  <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5 space-y-3 shadow-sm">
                     <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-blue-900 font-medium">4. Zusätzliche Rente aus neuer Sparrate</p>
-                        <p className="text-xs text-blue-900/70">
-                          {formData.monthlySavings} € · {parseFloat(formData.returnRate || '0').toFixed(1)} % Rendite · {formatYears(yearsToRetirementValue)}
-                        </p>
+                      <div className="flex items-start gap-2">
+                        <div>
+                          <p className="text-blue-900 font-semibold flex items-center gap-2">
+                            4. Zusätzliche Rente aus neuer Sparrate
+                            <InfoButton content="Dies ist die zusätzliche monatliche Rente, die du durch deine neue Sparrate erhältst. Sie wird basierend auf Sparrate, Rendite und Laufzeit berechnet." />
+                          </p>
+                          <p className="text-xs text-blue-900/70 mt-1">
+                            {formData.monthlySavings} € · {parseFloat(formData.returnRate || '0').toFixed(1)} % Rendite · {formatYears(yearsToRetirementValue)}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-xl font-bold text-blue-900">{formatEuro(projectedSavingsDisplay)} €</span>
                     </div>
-                      <span className="text-lg font-semibold text-blue-900">{formatEuro(projectedSavingsDisplay)} €</span>
-                    </div>
-                    <div className="rounded-xl border border-blue-200 bg-white/80 text-xs text-blue-900 p-3 space-y-1">
-                    <div className="flex justify-between">
-                      <span>Brutto</span>
-                        <span>{formatEuro(convertToDisplay(savingsProjection.monthlyPensionFutureGross))} €</span>
-                    </div>
-                      <div className={`flex justify-between ${plannedCapitalTaxDisplayRounded > 0 ? 'text-rose-600' : 'text-blue-500'}`}>
-                        <span>Kapitalertragsteuer</span>
-                        <span>-{formatEuro(plannedCapitalTaxDisplayRounded)} €</span>
-                    </div>
-                      <div className="flex justify-between font-semibold">
-                        <span>Netto neue Sparrate</span>
-                        <span>{formatEuro(projectedSavingsDisplay)} €</span>
+                    <div className="rounded-xl border border-blue-200 bg-white/80 text-xs text-blue-900 p-3 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span>Brutto</span>
+                        <span className="font-medium">{formatEuro(convertToDisplay(savingsProjection.monthlyPensionFutureGross))} €</span>
+                      </div>
+                      <div className={`flex justify-between items-center ${plannedCapitalTaxDisplayRounded > 0 ? 'text-rose-600' : 'text-blue-500'}`}>
+                        <div className="flex items-center gap-2">
+                          <span>Kapitalertragsteuer</span>
+                          <InfoButton content="Auf die Erträge aus der Sparrate wird Kapitalertragsteuer fällig. Die Berechnung berücksichtigt den Sparer-Pauschbetrag und die Teilfreistellung." />
+                        </div>
+                        <span className="font-medium">-{formatEuro(plannedCapitalTaxDisplayRounded)} €</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t border-blue-200">
+                        <span className="font-semibold">Netto neue Sparrate</span>
+                        <span className="font-bold">{formatEuro(projectedSavingsDisplay)} €</span>
                       </div>
                     </div>
-                    <div className="flex justify-between text-xs text-blue-900/70">
-                      <span>Kapitaläquivalent</span>
-                      <span>{capitalEquivalentDisplayFormatted} €</span>
+                    <div className="flex justify-between items-center text-xs text-blue-900/70 pt-1">
+                      <div className="flex items-center gap-2">
+                        <span>Kapitaläquivalent</span>
+                        <InfoButton content="Das Kapitaläquivalent zeigt, welches einmalige Kapital nötig wäre, um die gleiche monatliche Rente zu erzielen. Es wird berechnet als: Monatliche Rente × 12 × Jahre im Ruhestand." />
+                      </div>
+                      <span className="font-medium">{capitalEquivalentDisplayFormatted} €</span>
                     </div>
                   </div>
                 )}
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-2">
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-2 shadow-sm">
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600 font-medium">5. Lücke nach Sparrate</span>
-                    <span className={`text-lg font-semibold ${remainingGapDisplay > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-700 font-semibold">5. Lücke nach Sparrate</span>
+                      <InfoButton content="Dies ist die verbleibende Rentenlücke nach Berücksichtigung der neuen Sparrate. Sie ergibt sich aus der ursprünglichen Lücke minus der zusätzlichen Netto-Rente aus der Sparrate." />
+                    </div>
+                    <span className={`text-xl font-bold ${remainingGapDisplay > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                       {formatEuro(remainingGapDisplay)} €
                     </span>
                   </div>
@@ -5128,10 +6917,13 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-2">
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-2 shadow-sm">
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600 font-medium">6. Notwendiger Kapitalbedarf</span>
-                    <span className="text-lg font-semibold text-blue-700">{formatEuro(remainingCapitalRequirementDisplay)} €</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-700 font-semibold">6. Notwendiger Kapitalbedarf</span>
+                      <InfoButton content={`Um die verbleibende Lücke vollständig zu schließen, wäre ein einmaliges Kapital von ${formatEuro(remainingCapitalRequirementDisplay)} € erforderlich. Dies wird berechnet als: Verbleibende Lücke × 12 × Jahre im Ruhestand / Entnahmerendite (${parseFloat(formData.withdrawalRate || '0').toFixed(1)}%).`} />
+                    </div>
+                    <span className="text-xl font-bold text-blue-700">{formatEuro(remainingCapitalRequirementDisplay)} €</span>
                   </div>
                   <p className="text-xs text-gray-500 leading-relaxed">
                     Um die verbleibende monatliche Lücke von {formatEuro(remainingGapDisplay)} € zu schließen, wäre bei
@@ -5143,11 +6935,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                 </div>
               </div>
 
-              <p className="text-xs text-gray-500">
-                Hinweis: Sozialabgaben werden pauschal mit KV {kvRatePercent}% und Pflege {careRatePercent}% (Kinder {formData.hasChildren ? 'ja' : 'nein'}) auf die gesetzliche Rente hochgerechnet. Für Betriebsrenten berücksichtigen wir zusätzlich {privateSvRatePercent}% auf den Anteil oberhalb des Freibetrags von 187,25 € pro Monat. Steuern berücksichtigen wir im nächsten Schritt.
-                Grundfreibetrag (hochgerechnet): {formatEuro(annualAllowance)} € p. a.
-          </p>
-            </div>
+            </CollapsibleSection>
           </div>
         )}
 
@@ -5348,10 +7136,17 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
       fileInputRef: RefObject<HTMLInputElement>
     }) => (
         <div className="space-y-4">
+        {title && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="text-xl">{icon}</span>
             <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+            </div>
+          </div>
+        )}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            {!title && <span className="text-xl">{icon}</span>}
           </div>
           <div className="flex items-center gap-2">
               <button
@@ -5445,35 +7240,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
 
     return (
       <div className="space-y-10">
-        <div className="border rounded-xl p-6 bg-white shadow-sm space-y-8">
-          {renderAnalysisSection({
-            title: 'Gesetzliche Rentenversicherung – Analyse',
-            icon: '📊',
-            category: 'statutory',
-            attachmentsList: statutoryAttachments,
-            strengths: formData.statutoryStrengths,
-            weaknesses: formData.statutoryWeaknesses,
-            onStrengthsChange: (value) => setFormData((prev) => ({ ...prev, statutoryStrengths: value })),
-            onWeaknessesChange: (value) => setFormData((prev) => ({ ...prev, statutoryWeaknesses: value })),
-            remainingSlots: remainingStatutorySlots,
-            fileInputRef: statutoryFileInputRef,
-          })}
-          <div className="border-t pt-6">
-            {renderAnalysisSection({
-              title: 'Private Vorsorge – Analyse',
-              icon: '🏦',
-              category: 'private',
-              attachmentsList: privateAttachments,
-              strengths: formData.privateStrengths,
-              weaknesses: formData.privateWeaknesses,
-              onStrengthsChange: (value) => setFormData((prev) => ({ ...prev, privateStrengths: value })),
-              onWeaknessesChange: (value) => setFormData((prev) => ({ ...prev, privateWeaknesses: value })),
-              remainingSlots: remainingPrivateSlots,
-              fileInputRef: privateFileInputRef,
-            })}
-          </div>
-        </div>
-
+        {/* Rentenlücke im Überblick - nach oben verschoben */}
         <div className="border rounded-xl p-6 bg-white shadow-sm space-y-6">
           <div className="flex items-center gap-2">
             <span className="text-xl">📉</span>
@@ -5532,13 +7299,41 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
           </div>
         </div>
 
+        <div className="space-y-6">
+          <CollapsibleSection title="📊 Gesetzliche Rentenversicherung – Analyse" defaultOpen={false}>
+          {renderAnalysisSection({
+              title: '', // Titel wird jetzt vom CollapsibleSection übernommen
+            icon: '📊',
+            category: 'statutory',
+            attachmentsList: statutoryAttachments,
+            strengths: formData.statutoryStrengths,
+            weaknesses: formData.statutoryWeaknesses,
+            onStrengthsChange: (value) => setFormData((prev) => ({ ...prev, statutoryStrengths: value })),
+            onWeaknessesChange: (value) => setFormData((prev) => ({ ...prev, statutoryWeaknesses: value })),
+            remainingSlots: remainingStatutorySlots,
+            fileInputRef: statutoryFileInputRef,
+          })}
+          </CollapsibleSection>
+          <CollapsibleSection title="🏦 Private Vorsorge – Analyse" defaultOpen={false}>
+            {renderAnalysisSection({
+              title: '', // Titel wird jetzt vom CollapsibleSection übernommen
+              icon: '🏦',
+              category: 'private',
+              attachmentsList: privateAttachments,
+              strengths: formData.privateStrengths,
+              weaknesses: formData.privateWeaknesses,
+              onStrengthsChange: (value) => setFormData((prev) => ({ ...prev, privateStrengths: value })),
+              onWeaknessesChange: (value) => setFormData((prev) => ({ ...prev, privateWeaknesses: value })),
+              remainingSlots: remainingPrivateSlots,
+              fileInputRef: privateFileInputRef,
+            })}
+          </CollapsibleSection>
+        </div>
+
         {/* DISC Personality-Based Views */}
-        <div className="border rounded-xl p-6 bg-white shadow-sm">
+        <CollapsibleSection title="Persönliche Rentenansicht" defaultOpen={false}>
           <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">
-              Persönliche Rentenansicht
-            </h3>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 mb-4">
               Wähle deine bevorzugte Darstellung der Rentenberechnung
             </p>
           </div>
@@ -5593,24 +7388,26 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                   returnRate: parseFloat(formData.returnRate || '4.0') / 100,
                 }}
                 onActionClick={() => {
-                  // Scroll zur Empfehlungs-Sektion
-                  const recommendationSection = document.querySelector('[data-section="recommendation"]')
-                  if (recommendationSection) {
-                    recommendationSection.scrollIntoView({ behavior: 'smooth' })
-                  }
+                  // Navigiere zur Ergebnis-Seite
+                  router.push(`/clients/${initialConcept.clientId}/retirement-concept/${initialConcept.id}/ergebnis`)
                 }}
               />
             )
           })()}
-        </div>
+        </CollapsibleSection>
 
-        <div className="border rounded-xl p-6 bg-white shadow-sm space-y-4" data-section="recommendation">
+        <CollapsibleSection title="Unsere Empfehlung" defaultOpen={false} data-section="recommendation">
+          <div className="space-y-6">
           <div className="flex items-center gap-2">
             <span className="text-xl">✨</span>
             <h3 className="text-lg font-semibold text-gray-800">Unsere Empfehlung</h3>
           </div>
+          
+          {/* Empfohlene Maßnahmen */}
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Empfohlene Maßnahmen</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Empfohlene Maßnahmen <span className="text-gray-500 font-normal">(Die errechneten Werte von Vorsorgeprodukten sind geringer als nur mit Prozentzahlen)</span>
+            </label>
             <textarea
               value={formData.recommendation}
               onChange={(event) => setFormData((prev) => ({ ...prev, recommendation: event.target.value }))}
@@ -5619,7 +7416,51 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
               placeholder="Beschreibe kurz, wie die Lücke geschlossen werden soll – Produkte, Umsetzungsschritte etc."
             />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          {/* Anbieter */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Anbieter</label>
+            <input
+              type="text"
+              value={formData.recommendationProvider}
+              onChange={(event) => setFormData((prev) => ({ ...prev, recommendationProvider: event.target.value }))}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2"
+              placeholder="z. B. Allianz, AXA, HDI, etc."
+            />
+          </div>
+
+          {/* Vorteile */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Vorteile</label>
+            <textarea
+              value={formData.recommendationAdvantages}
+              onChange={(event) => setFormData((prev) => ({ ...prev, recommendationAdvantages: event.target.value }))}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2"
+              rows={4}
+              placeholder="Liste die Vorteile der empfohlenen Lösung auf (z. B. Steuervorteile, Flexibilität, Garantien, etc.)"
+            />
+          </div>
+
+          {/* Zu erwartende Rente */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Zu erwartende Rente (€/Monat)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="10"
+              value={formData.expectedRente}
+              onChange={(event) => setFormData((prev) => ({ ...prev, expectedRente: event.target.value }))}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2"
+              placeholder="z. B. 500"
+            />
+            <p className="text-xs text-gray-500">
+              Die monatliche Rente, die der Kunde mit der empfohlenen Lösung erwarten kann.
+            </p>
+          </div>
+
+          {/* Zusätzliche monatliche Rente durch Empfehlung */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
                 Zusätzliche monatliche Rente durch Empfehlung (€)
@@ -5637,14 +7478,88 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                 Optional: Erwartete Netto-Verbesserung pro Monat, wenn die Empfehlung umgesetzt wird.
           </p>
             </div>
+
+          {/* Vorschau-Sektion - erscheint nach Eingabe der erwarteten Rente */}
+          {formData.expectedRente && parseFloat(formData.expectedRente) > 0 && (
+            <div className="mt-6 p-6 bg-gradient-to-br from-blue-50 via-emerald-50 to-blue-50 border-2 border-blue-200 rounded-xl shadow-lg">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="flex-shrink-0 w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                  <span className="text-2xl text-white">💡</span>
           </div>
+                <div className="flex-1">
+                  <h4 className="text-xl font-bold text-gray-900 mb-2">
+                    Das bedeutet für Sie:
+                  </h4>
+                  <p className="text-lg text-gray-700 mb-4">
+                    Mit unserer Empfehlung können Sie eine monatliche Rente von{' '}
+                    <span className="font-bold text-blue-700 text-xl">
+                      {formatEuro(parseFloat(formData.expectedRente))} €
+                    </span>{' '}
+                    erwarten.
+                  </p>
+                  
+                  {/* Vergleich mit aktueller Situation */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div className="bg-white/80 rounded-lg p-4 border border-gray-200">
+                      <p className="text-sm text-gray-600 mb-1">Aktuelle Situation</p>
+                      <p className="text-2xl font-bold text-gray-800">
+                        {formatEuro(gapBeforeDisplayStep4)} €
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Monatliche Lücke</p>
         </div>
-        <div className="border rounded-xl p-6 bg-white shadow-sm space-y-4">
+                    <div className="bg-white/80 rounded-lg p-4 border border-emerald-200">
+                      <p className="text-sm text-gray-600 mb-1">Mit Empfehlung</p>
+                      <p className="text-2xl font-bold text-emerald-700">
+                        {formatEuro(Math.max(0, gapBeforeDisplayStep4 - parseFloat(formData.expectedRente || '0')))} €
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Verbleibende Lücke</p>
+                    </div>
+                  </div>
+
+                  {/* Call-to-Action */}
+                  <div className="bg-white rounded-lg p-4 border-2 border-blue-300">
+                    <p className="text-base font-semibold text-gray-900 mb-2">
+                      ⚡ Jetzt handeln – Ihre Zukunft sichern!
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      {formData.recommendationProvider 
+                        ? `Mit ${formData.recommendationProvider} können Sie diese Rente erreichen.`
+                        : 'Mit unserer Empfehlung können Sie diese Rente erreichen.'
+                      }
+                      {formData.recommendationAdvantages && (
+                        <span className="block mt-2 text-gray-600">
+                          <strong>Vorteile:</strong> {formData.recommendationAdvantages}
+                        </span>
+                      )}
+                    </p>
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <p className="text-sm font-medium text-gray-800">
+                        💰 <strong>Monatliche Verbesserung:</strong>{' '}
+                        <span className="text-emerald-700 font-bold">
+                          +{formatEuro(parseFloat(formData.expectedRente))} €
+                        </span>
+                      </p>
+                      <p className="text-sm font-medium text-gray-800 mt-2">
+                        📈 <strong>Jährliche Verbesserung:</strong>{' '}
+                        <span className="text-emerald-700 font-bold">
+                          +{formatEuro(parseFloat(formData.expectedRente) * 12)} €
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          </div>
+        </CollapsibleSection>
+        {isAdmin && (
+          <CollapsibleSection title="HTML-Ansicht & Variablen" defaultOpen={false}>
+          <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xl">🧩</span>
-                <h3 className="text-lg font-semibold text-gray-800">HTML-Ansicht & Variablen</h3>
               {formData.customTemplateHtml ? (
                 <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 font-medium">
                   Benutzerdefiniertes Template aktiv
@@ -5789,14 +7704,25 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
             </p>
           </div>
         </div>
+        </CollapsibleSection>
+        )}
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Progress Bar */}
-      <div className="border rounded-lg p-4 bg-gray-50">
+    <>
+      {/* Draft-Wiederherstellungs-Dialog */}
+      <DraftRestoreDialog
+        isOpen={showRestoreDialog}
+        onRestore={handleRestoreDraft}
+        onDiscard={handleDiscardDraft}
+        draftTimestamp={draftTimestamp}
+      />
+      
+      <div className="space-y-6">
+        {/* Progress Bar */}
+        <div className="border rounded-lg p-4 bg-gray-50">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium">Schritt {currentStep} von {totalSteps}</span>
           <span className="text-sm text-gray-500">
@@ -5815,6 +7741,13 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
       </div>
 
       <div className="border rounded-lg p-6 bg-white">
+        {/* Navigation zwischen Ansichten */}
+        <ConceptNavigation
+          clientId={initialConcept.clientId}
+          conceptId={conceptId}
+          activeView={activeView}
+        />
+        
         {currentStep === 1 && renderStep1()}
         {currentStep === 2 && renderStep2()}
         {currentStep === 3 && renderStep3()}
@@ -5822,7 +7755,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
       </div>
 
       <div className="flex gap-3 justify-between">
-        <div>
+        <div className="flex gap-3">
           {currentStep > 1 && (
             <button
               onClick={prevStep}
@@ -5831,6 +7764,62 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
               ← Zurück
             </button>
           )}
+          {/* Daten laden Button */}
+          <button
+            onClick={handleLoadData}
+            disabled={saving}
+            style={{
+              backgroundColor: 'var(--color-primary)',
+              color: 'white',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: saving ? 'not-allowed' : 'pointer',
+              opacity: saving ? 0.5 : 1,
+              transition: 'opacity 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              if (!saving) {
+                e.currentTarget.style.opacity = '0.9'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!saving) {
+                e.currentTarget.style.opacity = '1'
+              }
+            }}
+            title="Lädt die gespeicherten Daten aus der Datenbank"
+          >
+            {saving ? '⏳ Lade...' : '📥 Daten laden'}
+          </button>
+          {/* Daten speichern Button */}
+          <button
+            onClick={handleSaveData}
+            disabled={saving || !formData.birthDate || !formData.desiredRetirementAge || !formData.targetPensionNetto}
+            style={{
+              backgroundColor: 'var(--color-success)',
+              color: 'white',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: (saving || !formData.birthDate || !formData.desiredRetirementAge || !formData.targetPensionNetto) ? 'not-allowed' : 'pointer',
+              opacity: (saving || !formData.birthDate || !formData.desiredRetirementAge || !formData.targetPensionNetto) ? 0.5 : 1,
+              transition: 'opacity 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              if (!saving && formData.birthDate && formData.desiredRetirementAge && formData.targetPensionNetto) {
+                e.currentTarget.style.opacity = '0.9'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!saving && formData.birthDate && formData.desiredRetirementAge && formData.targetPensionNetto) {
+                e.currentTarget.style.opacity = '1'
+              }
+            }}
+            title="Speichert die aktuellen Daten in der Datenbank"
+          >
+            {saving ? '💾 Speichere...' : '💾 Daten speichern'}
+          </button>
         </div>
         <div className="flex gap-3">
           {currentStep < totalSteps ? (
@@ -5843,7 +7832,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
           ) : (
             <>
               <button
-                onClick={handleSave}
+                onClick={() => handleSave(true)}
                 disabled={saving || !formData.birthDate || !formData.desiredRetirementAge || !formData.targetPensionNetto}
                 className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -5869,7 +7858,7 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
       {/* Modal für Steuerdetails */}
       {showTaxDetailsModal && (() => {
         const currentProjection = calculateSavingsProjection()
-        const defaultAcquisitionCosts = formData.acquisitionCosts || currentProjection.totalPaidIn.toFixed(2)
+        const defaultAcquisitionCosts = formData.acquisitionCosts || (currentProjection.totalPaidIn ?? 0).toFixed(2)
         
         return (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -5917,8 +7906,8 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
                     className="w-full border border-gray-300 rounded-lg px-4 py-2"
                     placeholder="0"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Automatisch berechnet: {formatEuro(currentProjection.totalPaidIn)} € (eingezahltes Kapital). Kann manuell angepasst werden.
+                    <p className="text-xs text-gray-500 mt-1">
+                    Automatisch berechnet: {formatEuro(currentProjection.totalPaidIn ?? 0)} € (eingezahltes Kapital). Kann manuell angepasst werden.
                   </p>
                 </div>
 
@@ -5978,6 +7967,39 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
         </div>
         )
       })()}
-    </div>
+
+      {/* Sticky Hinweis-Banner für Brutto/Netto-Berechnungen */}
+      {advisoryMode && !advisoryNoticeDismissed && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-amber-50 border-t-2 border-amber-300 shadow-lg">
+          <div className="max-w-7xl mx-auto px-4 py-3">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 mt-0.5">
+                <svg className="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h5 className="text-sm font-semibold text-amber-900 mb-1">Hinweis zu Brutto/Netto-Berechnungen</h5>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  Die dargestellten Brutto- und Netto-Beträge stellen <strong>nur eine Beispielrechnung</strong> dar und dienen der ersten Orientierung. 
+                  Die tatsächlichen Steuer- und Abgabensätze können individuell variieren und hängen von verschiedenen Faktoren ab (z.B. persönlicher Steuersatz, 
+                  weitere Einkünfte, Steuerklasse, etc.). <strong>Wir erbringen keine steuerliche Beratung.</strong> Für eine genaue Berechnung und 
+                  steuerliche Beratung empfehlen wir, einen Steuerberater zu konsultieren.
+                </p>
+              </div>
+              <div className="flex-shrink-0 ml-4">
+                <button
+                  onClick={handleDismissAdvisoryNotice}
+                  className="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors whitespace-nowrap"
+                >
+                  Verstanden
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
+    </>
   )
 }

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { isAdmin } from '@/lib/auth'
 import RetirementConceptForm from './retirement-concept-form'
 
 interface Params {
@@ -32,6 +33,9 @@ export default async function RetirementConceptPage({ params }: Params) {
     )
   }
 
+  // Prüfe Admin-Status
+  const userIsAdmin = isAdmin()
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6" style={{ paddingTop: 'var(--spacing-8)', paddingBottom: 'var(--spacing-8)' }}>
       <div className="space-y-8">
@@ -46,32 +50,22 @@ export default async function RetirementConceptPage({ params }: Params) {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <a
-              href={`/clients/${concept.client.id}/retirement-concept/${concept.id}/ergebnis`}
-              className="inline-flex items-center justify-center text-white hover:opacity-90 transition-opacity"
-              style={{
-                padding: '12px 24px',
-                borderRadius: 'var(--radius-pill)',
-                fontSize: 'var(--text-base)',
-                fontWeight: 'var(--weight-medium)',
-                backgroundColor: 'var(--color-primary)'
-              }}
-            >
-              📊 Ergebnis anzeigen
-            </a>
-            <a
-              href={`/api/retirement-concepts/${concept.id}/pdf`}
-              className="inline-flex items-center justify-center text-white hover:opacity-90 transition-opacity"
-              style={{
-                padding: '12px 24px',
-                borderRadius: 'var(--radius-pill)',
-                fontSize: 'var(--text-base)',
-                fontWeight: 'var(--weight-medium)',
-                backgroundColor: 'var(--color-primary)'
-              }}
-            >
-              📄 PDF herunterladen
-            </a>
+            {/* PDF-Button nur für Admins */}
+            {userIsAdmin && (
+              <a
+                href={`/api/retirement-concepts/${concept.id}/pdf`}
+                className="inline-flex items-center justify-center text-white hover:opacity-90 transition-opacity"
+                style={{
+                  padding: '12px 24px',
+                  borderRadius: 'var(--radius-pill)',
+                  fontSize: 'var(--text-base)',
+                  fontWeight: 'var(--weight-medium)',
+                  backgroundColor: 'var(--color-primary)'
+                }}
+              >
+                📄 PDF herunterladen
+              </a>
+            )}
             <a
               href={`/clients/${concept.client.id}`}
               className="inline-flex items-center justify-center hover:opacity-90 transition-opacity"
@@ -119,6 +113,7 @@ export default async function RetirementConceptPage({ params }: Params) {
             customTemplateHtml: concept.customTemplateHtml,
             recommendationDelta: concept.recommendationDelta,
             notes: concept.notes,
+            calculationSnapshot: (concept as any).calculationSnapshot || null,
             client: {
               id: concept.client.id,
               firstName: concept.client.firstName,

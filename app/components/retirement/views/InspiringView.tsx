@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import { Sparkles, Plane, Heart, Users } from 'lucide-react'
+import { Sparkles, Plane, Sun, Users, Target } from 'lucide-react'
 import type { RetirementData } from '../types'
 
 interface InspiringViewProps {
@@ -31,46 +31,46 @@ export default function InspiringView({ data, onActionClick }: InspiringViewProp
           <h2 
             className="text-3xl md:text-4xl font-bold mb-2 flex items-center justify-center gap-2"
             style={{ 
-              background: 'linear-gradient(135deg, #F59E0B 0%, #EC4899 100%)',
+              background: 'linear-gradient(135deg, #FDB913 0%, #FF8C42 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
             }}
           >
-            DEINE RENTEN-GESCHICHTE <Sparkles size={28} className="inline" style={{ color: '#F59E0B' }} />
+            DEINE MÖGLICHKEITEN IM RUHESTAND <Sun size={28} className="inline" style={{ color: '#FDB913' }} />
           </h2>
         </div>
 
-        {/* Dream Retirement Visual */}
+        {/* Active Retirement Visual */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-24 h-24 rounded-full mb-4" style={{ 
-            background: 'linear-gradient(135deg, #F59E0B 0%, #EC4899 100%)',
+            background: 'linear-gradient(135deg, #FDB913 0%, #FF8C42 100%)',
           }}>
-            <Heart size={40} className="text-white" />
+            <Sun size={40} className="text-white" />
           </div>
           <h3 className="text-xl font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
-            Dein Traum-Ruhestand
+            Deine Freiheit im Ruhestand
           </h3>
         </div>
 
         {/* Numbers */}
         <div className="space-y-3 mb-8">
-          <div className="flex justify-between items-center p-4 rounded-lg" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)' }}>
-            <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>Du willst:</span>
-            <span className="text-xl font-bold" style={{ color: '#F59E0B' }}>
+          <div className="flex justify-between items-center p-4 rounded-lg" style={{ backgroundColor: 'rgba(253, 185, 19, 0.1)' }}>
+            <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>Für aktiven Lifestyle:</span>
+            <span className="text-xl font-bold" style={{ color: '#FDB913' }}>
               {formatCurrency(data.targetPension)} / Monat
             </span>
           </div>
           
           <div className="flex justify-between items-center p-4 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
-            <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>Du bekommst:</span>
+            <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>Garantiert sicher:</span>
             <span className="text-xl font-bold" style={{ color: '#3B82F6' }}>
               {formatCurrency(data.currentCoverage)} / Monat
             </span>
           </div>
           
-          <div className="flex justify-between items-center p-4 rounded-lg" style={{ backgroundColor: 'rgba(236, 72, 153, 0.1)' }}>
-            <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>Deine Lücke:</span>
-            <span className="text-xl font-bold" style={{ color: '#EC4899' }}>
+          <div className="flex justify-between items-center p-4 rounded-lg" style={{ backgroundColor: 'rgba(255, 140, 66, 0.1)' }}>
+            <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>Gestaltungsspielraum:</span>
+            <span className="text-xl font-bold" style={{ color: '#FF8C42' }}>
               {formatCurrency(data.gap)} / Monat
             </span>
           </div>
@@ -80,7 +80,7 @@ export default function InspiringView({ data, onActionClick }: InspiringViewProp
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium" style={{ color: scenario === 'without' ? '#DC2626' : 'var(--color-text-secondary)' }}>
-              ← Ohne Vorsorge
+              ← Ohne zusätzliche Vorsorge
             </span>
             <span className="text-sm font-medium" style={{ color: scenario === 'with' ? '#10B981' : 'var(--color-text-secondary)' }}>
               Mit Vorsorge →
@@ -108,44 +108,56 @@ export default function InspiringView({ data, onActionClick }: InspiringViewProp
           }}>
             <div className="text-lg font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
               {scenario === 'without' 
-                ? `Nur ${formatCurrency(data.currentCoverage)} / Monat verfügbar`
+                ? `Erforderliche Sparrate: ${formatCurrency(data.requiredMonthlySavings)} / Monat`
                 : `${formatCurrency(data.targetPension)} / Monat gesichert`}
             </div>
             <div className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
               {scenario === 'without' 
-                ? 'Lebensstandard muss reduziert werden'
-                : 'Dein Traum-Ruhestand ist möglich!'}
+                ? `Um die Lücke von ${formatCurrency(data.gap)} / Monat zu schließen`
+                : 'Deine Möglichkeiten sind gesichert!'}
             </div>
           </div>
         </div>
 
-        {/* Emotional Copy */}
+        {/* Motivational Copy */}
         <div className="mb-8 p-6 rounded-xl" style={{ 
-          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%)',
+          background: 'linear-gradient(135deg, rgba(253, 185, 19, 0.1) 0%, rgba(255, 140, 66, 0.1) 100%)',
         }}>
-          <div className="space-y-3 text-center">
-            <p className="text-lg" style={{ color: 'var(--color-text-primary)' }}>
-              Stell dir vor: <Plane className="inline mx-1" size={20} style={{ color: '#F59E0B' }} /> Reisen wohin du willst. 
-              <Users className="inline mx-1" size={20} style={{ color: '#EC4899' }} /> Zeit mit deinen Liebsten. 
-              Hobbys ohne finanzielle Sorgen.
+          <div className="space-y-4 text-center">
+            <p className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
+              Mehr Möglichkeiten:
             </p>
-            <p className="text-base font-medium" style={{ color: 'var(--color-text-primary)' }}>
-              Das ist möglich! Lass uns gemeinsam deinen Weg dorthin gestalten.
+            <div className="space-y-2 text-base" style={{ color: 'var(--color-text-primary)' }}>
+              <p>
+                <Plane className="inline mx-1" size={18} style={{ color: '#FDB913' }} /> 
+                Spontane Reisen und neue Erlebnisse
+              </p>
+              <p>
+                <Target className="inline mx-1" size={18} style={{ color: '#FF8C42' }} /> 
+                Hobbys und Aktivitäten ohne Einschränkungen
+              </p>
+              <p>
+                <Users className="inline mx-1" size={18} style={{ color: '#FDB913' }} /> 
+                Großzügigkeit für Familie und Freunde
+              </p>
+            </div>
+            <p className="text-base font-medium mt-4" style={{ color: 'var(--color-text-primary)' }}>
+              So schließt du die Lücke und gewinnst Gestaltungsfreiheit.
             </p>
           </div>
         </div>
 
-        {/* Colorful Action Button */}
+        {/* Action Button */}
         <div className="mb-6">
           <button
             onClick={onActionClick}
             className="w-full py-4 px-6 rounded-xl font-bold text-lg text-white transition-all hover:scale-105"
             style={{ 
-              background: 'linear-gradient(135deg, #F59E0B 0%, #EC4899 100%)',
+              background: 'linear-gradient(135deg, #FDB913 0%, #FF8C42 100%)',
             }}
           >
             <div className="flex items-center justify-center gap-2">
-              Meine Zukunft sichern <Sparkles size={20} />
+              Freiheit sichern <Sparkles size={20} />
             </div>
           </button>
         </div>
@@ -156,7 +168,7 @@ export default function InspiringView({ data, onActionClick }: InspiringViewProp
             <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
               Dein Fortschritt:
             </span>
-            <span className="text-sm font-bold" style={{ color: '#F59E0B' }}>
+            <span className="text-sm font-bold" style={{ color: '#FDB913' }}>
               {progressPercentage.toFixed(1)}% gedeckt
             </span>
           </div>
@@ -165,7 +177,7 @@ export default function InspiringView({ data, onActionClick }: InspiringViewProp
               className="h-full rounded-full transition-all duration-500"
               style={{ 
                 width: `${progressPercentage}%`,
-                background: 'linear-gradient(90deg, #F59E0B 0%, #EC4899 100%)',
+                background: 'linear-gradient(90deg, #FDB913 0%, #FF8C42 100%)',
               }}
             />
           </div>

@@ -14,7 +14,7 @@ const PERSONALITY_CONFIGS = [
   },
   {
     type: 'I' as PersonalityType,
-    name: 'Visuell & Emotional',
+    name: 'Visuell',
     color: '#F59E0B', // amber-500
     icon: 'heart',
     label: 'Gelb'

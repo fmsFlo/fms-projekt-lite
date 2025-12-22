@@ -1,8 +1,8 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DATABASE_URL")
-  schemas  = ["public", "auth"]
+  schemas   = ["public", "auth"]
 }
 
 generator client {
@@ -11,37 +11,43 @@ generator client {
 }
 
 model Client {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  firstName String
-  lastName  String
-  email     String?
-  phone     String?
-  street    String?
-  houseNumber String?
-  city      String?
-  zip       String?
-  iban      String?
-  crmId     String?
-  isCompany Boolean  @default(false)  // ✅ Gibt an ob Unternehmen oder Person
-  companyName String?                  // ✅ Firmenname wenn isCompany = true
-  birthDate DateTime?                  // Geburtsdatum
-  profession String?                    // Beruf
-  employmentStatus String?              // angestellt, beamter, selbständig
-  salaryGrade String?                   // Besoldungsstufe (nur bei Beamten)
-  grvInsuranceStatus String?            // GRV-Versicherung: freiwillig-pflicht, nicht-versichert (nur bei Selbständigen)
-  
-  // Pipeline Management
-  nextCallDate DateTime?  // Nächstes Anrufdatum für Smart Views
-  callNotes    String?    // Notizen für Anrufe
+  id                 String    @id @default(cuid())
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  firstName          String
+  lastName           String
+  email              String?
+  phone              String?
+  street             String?
+  houseNumber        String?
+  city               String?
+  zip                String?
+  iban               String?
+  crmId              String?
+  isCompany          Boolean   @default(false) // ✅ Gibt an ob Unternehmen oder Person
+  companyName        String? // ✅ Firmenname wenn isCompany = true
+  birthDate          DateTime? // Geburtsdatum
+  profession         String? // Beruf
+  employmentStatus   String? // angestellt, beamter, selbständig
+  salaryGrade        String? // Besoldungsstufe (nur bei Beamten)
+  grvInsuranceStatus String? // GRV-Versicherung: freiwillig-pflicht, nicht-versichert (nur bei Selbständigen)
 
-  contracts Contract[]
-  opportunities Opportunity[]
-  leads         Lead[]
-  retirementConcepts RetirementConcept[]
-  einnahmenAusgaben EinnahmenAusgaben[]
+  // Pipeline Management
+  nextCallDate DateTime? // Nächstes Anrufdatum für Smart Views
+  callNotes    String? // Notizen für Anrufe
+
+  // Rentenkonzept-Werte (synchronisiert vom letzten Konzept)
+  targetPensionNetto   Float? // Wunschrente (Netto, €/mtl.) - vom Rentenkonzept
+  desiredRetirementAge Int? // Gewünschtes Rentenalter - vom Rentenkonzept
+  monthlySavings       Float? // Monatlicher Sparbetrag (€) - vom Rentenkonzept
+
+  contracts           Contract[]
+  opportunities       Opportunity[]
+  leads               Lead[]
+  retirementConcepts  RetirementConcept[]
+  einnahmenAusgaben   EinnahmenAusgaben[]
   versicherungsChecks VersicherungsCheck[]
+  empfehlungsChecks   EmpfehlungsCheck[]
 
   @@schema("public")
 }
@@ -69,14 +75,14 @@ model Contract {
   variables         String
   pdfFileName       String?
   signedPdfFileName String?
-  
+
   // Stripe Integration
-  stripeCustomerId String?
-  stripeMandateId  String?
+  stripeCustomerId    String?
+  stripeMandateId     String?
   stripeMandateStatus String? // pending, active, inactive, invalid
-  
+
   // Sevdesk Integration
-  sevdeskInvoiceId String? // ID der erstellten Sevdesk-Rechnung
+  sevdeskInvoiceId     String? // ID der erstellten Sevdesk-Rechnung
   sevdeskInvoiceNumber String? // Rechnungsnummer von Sevdesk
 
   @@schema("public")
@@ -86,84 +92,84 @@ model Company {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   settings CompanySettings?
 
   @@schema("public")
 }
 
 model CompanySettings {
-  id                        String   @id @default(cuid())
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
-  
-  companyId                 String?  @unique
-  emailNotifications        Boolean  @default(true)
-  smsNotifications          Boolean  @default(false)
-  currency                  String   @default("EUR")
-  timezone                  String   @default("Europe/Berlin")
-  
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  companyId          String? @unique
+  emailNotifications Boolean @default(true)
+  smsNotifications   Boolean @default(false)
+  currency           String  @default("EUR")
+  timezone           String  @default("Europe/Berlin")
+
   // Persönliche Kontaktdaten
-  personalName              String?
-  personalEmail             String?
-  personalStreet            String?
-  personalHouseNumber       String?
-  personalZip               String?
-  personalCity              String?
-  personalPhone             String?
-  personalWebsite           String?
-  
+  personalName        String?
+  personalEmail       String?
+  personalStreet      String?
+  personalHouseNumber String?
+  personalZip         String?
+  personalCity        String?
+  personalPhone       String?
+  personalWebsite     String?
+
   // Gewerbliche Kontaktdaten
-  companyName               String?
-  contactPerson             String?
-  companyEmail              String?
-  companyStreet             String?
-  companyHouseNumber        String?
-  companyZip                String?
-  companyCity               String?
-  companyPhone              String?
-  companyWebsite            String?
-  
+  companyName        String?
+  contactPerson      String?
+  companyEmail       String?
+  companyStreet      String?
+  companyHouseNumber String?
+  companyZip         String?
+  companyCity        String?
+  companyPhone       String?
+  companyWebsite     String?
+
   // Abweichende Rechnungsadresse
-  billingStreet             String?
-  billingHouseNumber        String?
-  billingZip                String?
-  billingCity               String?
-  billingEmail              String?
-  
+  billingStreet      String?
+  billingHouseNumber String?
+  billingZip         String?
+  billingCity        String?
+  billingEmail       String?
+
   // Make Integration
-  makeWebhookUrl            String?
-  makeApiKey                String?
-  
+  makeWebhookUrl String?
+  makeApiKey     String?
+
   // Close Integration
-  closeApiKey               String?
-  
+  closeApiKey String?
+
   // Calendly Integration
-  calendlyApiToken          String?
-  
+  calendlyApiToken String?
+
   // Branding
-  logoUrl                   String?
-  companySlogan             String?
-  
+  logoUrl       String?
+  companySlogan String?
+
   // Brand colors (Apple-inspired)
-  primaryColor              String   @default("#007AFF")  // Apple Blue
-  secondaryColor            String   @default("#5856D6")  // Apple Purple
-  
+  primaryColor   String @default("#007AFF") // Apple Blue
+  secondaryColor String @default("#5856D6") // Apple Purple
+
   // Zahlungsinformationen
-  advisorIban               String?
-  paymentSubject            String?
-  creditorId                String? // SEPA Gläubiger-Identifikationsnummer
-  
+  advisorIban    String?
+  paymentSubject String?
+  creditorId     String? // SEPA Gläubiger-Identifikationsnummer
+
   // Stripe Integration
-  stripeSecretKey           String?
-  stripePublishableKey       String?
-  
+  stripeSecretKey      String?
+  stripePublishableKey String?
+
   // Sevdesk Integration
-  sevdeskApiToken           String?
-  sevdeskApiUrl             String? // Optional, Standard: https://my.sevdesk.de/api/v1
-  
-  company                   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
+  sevdeskApiToken String?
+  sevdeskApiUrl   String? // Optional, Standard: https://my.sevdesk.de/api/v1
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
   @@index([companyId])
   @@schema("public")
 }
@@ -173,18 +179,18 @@ model PipelinePhase {
   id          String   @id @default(cuid())
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  name        String   // z.B. "Lead", "Qualifiziert", "Angebot", "Verhandlung", "Abschluss"
+  name        String // z.B. "Lead", "Qualifiziert", "Angebot", "Verhandlung", "Abschluss"
   slug        String   @unique // z.B. "lead", "qualified", "offer", "negotiation", "closed"
   order       Int      @default(0) // Reihenfolge im Kanban Board
-  color       String?  // Hex-Farbe für die Spalte (z.B. "#3B82F6")
+  color       String? // Hex-Farbe für die Spalte (z.B. "#3B82F6")
   isActive    Boolean  @default(true)
   type        String   @default("opportunity") // "lead" oder "opportunity"
-  description String?  // Beschreibung der Phase
-  probability Int?     // Wahrscheinlichkeit in % (0-100)
-  status      String?  // "open", "won", "lost" für Opportunity-Phasen
+  description String? // Beschreibung der Phase
+  probability Int? // Wahrscheinlichkeit in % (0-100)
+  status      String? // "open", "won", "lost" für Opportunity-Phasen
   isDefault   Boolean  @default(false) // Standard-Phase für Leads
   isConverted Boolean  @default(false) // Markiert konvertierte Leads
-  
+
   opportunities Opportunity[]
   leads         Lead[]
 
@@ -192,108 +198,108 @@ model PipelinePhase {
 }
 
 model Lead {
-  id          String   @id @default(cuid())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Basis-Informationen
-  firstName   String?
-  lastName    String?
-  email       String?
-  phone       String?
-  company     String?
-  
+  firstName String?
+  lastName  String?
+  email     String?
+  phone     String?
+  company   String?
+
   // Status
-  phaseId     String?  // Aktuelle Lead-Phase (optional)
-  phase       PipelinePhase? @relation(fields: [phaseId], references: [id])
-  
+  phaseId String? // Aktuelle Lead-Phase (optional)
+  phase   PipelinePhase? @relation(fields: [phaseId], references: [id])
+
   // Verknüpfung zu Client (optional, falls Lead konvertiert wurde)
-  clientId    String?
-  client      Client?  @relation(fields: [clientId], references: [id])
-  
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id])
+
   // Weitere Felder
-  source      String?  // Quelle des Leads
-  notes       String?  // Notizen
-  nextActionDate DateTime?   // Nächstes Follow-up Datum
-  nextActionNote String?      // Notiz für nächstes Follow-up
-  
+  source         String? // Quelle des Leads
+  notes          String? // Notizen
+  nextActionDate DateTime? // Nächstes Follow-up Datum
+  nextActionNote String? // Notiz für nächstes Follow-up
+
   // Automation/Flow Felder
-  automationData String?     // JSON für Flow-Daten
+  automationData String? // JSON für Flow-Daten
 
   @@schema("public")
 }
 
 model Opportunity {
-  id          String   @id @default(cuid())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Basis-Informationen
-  title       String   // Titel der Opportunity
-  description String?  // Beschreibung/Notizen
-  
+  title       String // Titel der Opportunity
+  description String? // Beschreibung/Notizen
+
   // Status
-  phaseId     String   // Aktuelle Pipeline-Phase
-  phase       PipelinePhase @relation(fields: [phaseId], references: [id])
-  
+  phaseId String // Aktuelle Pipeline-Phase
+  phase   PipelinePhase @relation(fields: [phaseId], references: [id])
+
   // Kunden-Informationen (optional, kann auch standalone sein)
-  clientId    String?  // Optional: Verknüpfung zu bestehendem Client
-  client      Client?  @relation(fields: [clientId], references: [id])
-  
+  clientId String? // Optional: Verknüpfung zu bestehendem Client
+  client   Client? @relation(fields: [clientId], references: [id])
+
   // Falls kein Client existiert, können diese Felder direkt gespeichert werden
-  firstName   String?
-  lastName    String?
-  email       String?
-  phone       String?
-  company     String?  // Firmenname falls vorhanden
-  
+  firstName String?
+  lastName  String?
+  email     String?
+  phone     String?
+  company   String? // Firmenname falls vorhanden
+
   // Weitere Felder für Automation/Flows
-  estimatedValue Float?      // Geschätzter Wert
-  probability    Int?        // Wahrscheinlichkeit in % (0-100) - kann auch aus Phase übernommen werden
-  nextActionDate DateTime?   // Nächstes Follow-up Datum
-  nextActionNote String?      // Notiz für nächstes Follow-up
-  
+  estimatedValue Float? // Geschätzter Wert
+  probability    Int? // Wahrscheinlichkeit in % (0-100) - kann auch aus Phase übernommen werden
+  nextActionDate DateTime? // Nächstes Follow-up Datum
+  nextActionNote String? // Notiz für nächstes Follow-up
+
   // Automation/Flow Felder
-  automationData String?     // JSON für Flow-Daten
-  
+  automationData String? // JSON für Flow-Daten
+
   // Air Call Integration (später)
-  airCallContactId String?   // Air Call Contact ID
+  airCallContactId String? // Air Call Contact ID
 
   @@schema("public")
 }
 
 // Calendly Events
 model CalendlyEvent {
-  id                  String   @id @default(cuid())
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Calendly-spezifische IDs
-  calendlyEventUri    String   @unique // URI von Calendly (z.B. "https://api.calendly.com/scheduled_events/ABC123")
-  
+  calendlyEventUri String @unique // URI von Calendly (z.B. "https://api.calendly.com/scheduled_events/ABC123")
+
   // Event-Details
-  eventTypeName       String?  // Name des Event-Types (z.B. "Erstgespräch")
-  mappedType          String?  // Gemappter Appointment-Type (erstgespraech, konzept, etc.)
-  startTime           DateTime
-  endTime             DateTime
-  status              String?  // active, canceled
-  
+  eventTypeName String? // Name des Event-Types (z.B. "Erstgespräch")
+  mappedType    String? // Gemappter Appointment-Type (erstgespraech, konzept, etc.)
+  startTime     DateTime
+  endTime       DateTime
+  status        String? // active, canceled
+
   // Host-Informationen
-  hostName            String?
-  hostEmail           String?
-  userId              String?  // Verknüpfung zu User (falls vorhanden)
-  
+  hostName  String?
+  hostEmail String?
+  userId    String? // Verknüpfung zu User (falls vorhanden)
+
   // Invitee-Informationen
-  inviteeName         String?
-  inviteeEmail        String?
-  leadId              String?  // Verknüpfung zu Lead (falls vorhanden)
-  
+  inviteeName  String?
+  inviteeEmail String?
+  leadId       String? // Verknüpfung zu Lead (falls vorhanden)
+
   // Sync-Informationen
-  syncedAt            DateTime @default(now())
-  
+  syncedAt DateTime @default(now())
+
   // Relation zu Custom Activities
-  customActivities    CustomActivity[]
-  
+  customActivities CustomActivity[]
+
   @@index([inviteeEmail])
   @@index([startTime])
   @@index([leadId])
@@ -302,44 +308,44 @@ model CalendlyEvent {
 
 // Custom Activities aus Close CRM
 model CustomActivity {
-  id                  String   @id @default(cuid())
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Close-spezifische IDs
-  closeActivityId     String   @unique // ID von Close
-  
+  closeActivityId String @unique // ID von Close
+
   // Activity-Details
-  activityType        String   // vorqualifizierung, erstgespraech, konzeptgespraech, etc.
-  activityTypeId      String?  // Close Activity Type ID
-  
+  activityType   String // vorqualifizierung, erstgespraech, konzeptgespraech, etc.
+  activityTypeId String? // Close Activity Type ID
+
   // Lead-Informationen
-  leadId              String?  // Close Lead ID
-  leadEmail           String?
-  leadName            String?
-  
+  leadId    String? // Close Lead ID
+  leadEmail String?
+  leadName  String?
+
   // User-Informationen
-  userId              String?  // Close User ID
-  userEmail           String?
-  userName            String?
-  
+  userId    String? // Close User ID
+  userEmail String?
+  userName  String?
+
   // Ergebnis-Felder
-  resultFieldId       String?  // Close Custom Field ID
-  resultValue         String?  // Ergebnis-Wert (z.B. "Erfolgreich", "Nicht interessiert")
-  
+  resultFieldId String? // Close Custom Field ID
+  resultValue   String? // Ergebnis-Wert (z.B. "Erfolgreich", "Nicht interessiert")
+
   // Daten
-  dateCreated         DateTime
-  dateUpdated         DateTime?
-  
+  dateCreated DateTime
+  dateUpdated DateTime?
+
   // Verknüpfung zu Calendly Event
-  calendlyEventId     String?
-  calendlyEvent       CalendlyEvent? @relation(fields: [calendlyEventId], references: [id])
-  matchedAt           DateTime?
-  matchConfidence     Float?   // 0-1 Score für Match-Qualität
-  
+  calendlyEventId String?
+  calendlyEvent   CalendlyEvent? @relation(fields: [calendlyEventId], references: [id])
+  matchedAt       DateTime?
+  matchConfidence Float? // 0-1 Score für Match-Qualität
+
   // Sync-Informationen
-  syncedAt            DateTime @default(now())
-  
+  syncedAt DateTime @default(now())
+
   @@index([closeActivityId])
   @@index([leadEmail])
   @@index([activityType])
@@ -350,67 +356,86 @@ model CustomActivity {
 
 // Rentenkonzept
 model RetirementConcept {
-  id          String   @id @default(cuid())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  clientId    String
-  client      Client   @relation(fields: [clientId], references: [id])
-  
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
   // Basis-Daten
-  birthDate           DateTime?  // Geburtsdatum
-  desiredRetirementAge Int?      // Gewünschtes Rentenalter (Standard: 67)
-  targetPensionNetto  Float?    // Wunschrente (Netto)
-  
+  birthDate            DateTime? // Geburtsdatum
+  desiredRetirementAge Int? // Gewünschtes Rentenalter (Standard: 67)
+  targetPensionNetto   Float? // Wunschrente (Netto)
+
   // Renteninformation
-  hasCurrentPensionInfo Boolean?  // Hat aktuelle Renteninformation?
-  pensionAtRetirement  Float?     // Wert zum Rentenbeginn (wenn hasCurrentPensionInfo = true)
-  pensionIncrease     Float?     // Rentensteigerung (%)
-  
+  hasCurrentPensionInfo Boolean? // Hat aktuelle Renteninformation?
+  pensionAtRetirement   Float? // Wert zum Rentenbeginn (wenn hasCurrentPensionInfo = true)
+  pensionIncrease       Float? // Rentensteigerung (%)
+
   // Berechnungsparameter
-  inflationRate       Float?     // Inflationsrate (%)
-  
+  inflationRate Float? // Inflationsrate (%)
+
   // Berechnete Werte
   calculatedPensionAtRetirement Float? // Berechneter Rentenwert zur Rente (auf Basis Steigerung und Inflation)
-  
+
   // Bestehende Vorsorge
-  existingProvisionData String?   // JSON: Array von Vorsorge-Objekten { type: string, amount: number }
-  totalExistingProvision Float?  // Gesamtsumme aller bestehenden Vorsorgen
+  existingProvisionData     String? // JSON: Array von Vorsorge-Objekten { type: string, amount: number }
+  totalExistingProvision    Float? // Gesamtsumme aller bestehenden Vorsorgen
   totalPensionWithProvision Float? // Gesamtrente (Gesetzliche + Vorsorge)
-  calculatedTargetPension Float? // Gewünschte Rente hochgerechnet mit Inflation
-  
+  calculatedTargetPension   Float? // Gewünschte Rente hochgerechnet mit Inflation
+
   // Kapitalbedarf
-  lifeExpectancy       Int?      // Lebenserwartung (Jahre)
-  monthlySavings       Float?    // Monatlicher Sparbetrag (€)
-  returnRate           Float?    // Rendite (%)
-  withdrawalRate       Float?    // Rendite Entnahmephase (%)
+  lifeExpectancy Int? // Lebenserwartung (Jahre)
+  monthlySavings Float? // Monatlicher Sparbetrag (€)
+  returnRate     Float? // Rendite (%)
+  withdrawalRate Float? // Rendite Entnahmephase (%)
 
   // Sozialversicherungsannahmen
-  hasChildren          Boolean?  @default(true)
-  isCompulsoryInsured  Boolean?  @default(true)
-  kvBaseRate           Float?    @default(7.3)
-  kvAdditionalRate     Float?    @default(2.5)
-  kvContributionIncrease Float?  @default(0)
+  hasChildren            Boolean? @default(true)
+  isCompulsoryInsured    Boolean? @default(true)
+  kvBaseRate             Float?   @default(7.3)
+  kvAdditionalRate       Float?   @default(2.5)
+  kvContributionIncrease Float?   @default(0)
 
   // Steuerannahmen
-  taxFilingStatus       String?  @default("single")
-  taxFreeAmount         Float?   @default(12096)
-  taxIncreaseRate       Float?   @default(0)
-  taxFreePercentage     Float?   @default(83.5) // 2025: 16.5% steuerfrei -> 83.5% steuerpflichtig
-  capitalGainsTaxRate   Float?   @default(25)
-  capitalGainsSoliRate  Float?   @default(5.5)
-  capitalGainsChurchRate Float?  @default(0)
-  capitalGainsAllowance Float?   @default(1000)
-  calculationSnapshot   String?
-  statutoryStrengths    String?
-  statutoryWeaknesses   String?
-  privateStrengths      String?
-  privateWeaknesses     String?
-  customTemplateHtml    String?
-  recommendationDelta   Float?
-  attachments           RetirementConceptAttachment[]
-  
-  notes               String?    // Notizen
+  taxFilingStatus        String?                       @default("single")
+  taxFreeAmount          Float?                        @default(12096)
+  taxIncreaseRate        Float?                        @default(0)
+  taxFreePercentage      Float?                        @default(83.5) // 2025: 16.5% steuerfrei -> 83.5% steuerpflichtig
+  capitalGainsTaxRate    Float?                        @default(25)
+  capitalGainsSoliRate   Float?                        @default(5.5)
+  capitalGainsChurchRate Float?                        @default(0)
+  capitalGainsAllowance  Float?                        @default(1000)
+  calculationSnapshot    String?
+  statutoryStrengths     String?
+  statutoryWeaknesses    String?
+  privateStrengths       String?
+  privateWeaknesses      String?
+  customTemplateHtml     String?
+  recommendationDelta    Float?
+  attachments            RetirementConceptAttachment[]
+
+  notes String? // Notizen
+
+  // Empfehlungen
+  recommendationProvider    String?
+  recommendationAdvantages  String?  @db.Text
+  expectedRente             Float?
+
+  // Produktvergleich
+  productBefore             String?
+  additionalRenteBefore     Float?
+  providerAfter             String?
+  advantages                String?  @db.Text
+  renteAfter1               Float?
+  renteAfter2               Float?
+  renteAfter3               Float?
+  returnRate1               Float?
+  returnRate2               Float?
+  returnRate3               Float?
+  monthlyContributionBefore Float?
+  monthlyContributionAfter  Float?
 
   @@schema("public")
 }
@@ -448,17 +473,17 @@ model ServiceContact {
 }
 
 model User {
-  id                String   @id @default(cuid())
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  email             String   @unique
+  id                String    @id @default(cuid())
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  email             String    @unique
   passwordHash      String
-  role              String   // 'admin' oder 'advisor'
+  role              String // 'admin' oder 'advisor'
   name              String?
-  isActive          Boolean  @default(true)
+  isActive          Boolean   @default(true)
   resetToken        String?
   resetTokenExpires DateTime?
-  visibleCategories String?  // JSON-Array der sichtbaren Kategorien (null = alle für Admin, [] = keine Honorarverträge für Berater)
+  visibleCategories String? // JSON-Array der sichtbaren Kategorien (null = alle für Admin, [] = keine Honorarverträge für Berater)
 
   @@schema("public")
 }
@@ -486,31 +511,45 @@ model EinnahmenAusgaben {
   clientId          String
   client            Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   beruf             String?
-  nettoEinkommen    Float     @default(0)
-  persoenlicheDaten String?   // JSON
-  fixkosten         String?   // JSON
-  variableKosten    String?   // JSON
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  nettoEinkommen    Float    @default(0)
+  persoenlicheDaten String? // JSON
+  fixkosten         String? // JSON
+  variableKosten    String? // JSON
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@index([clientId])
   @@schema("public")
 }
 
 model VersicherungsCheck {
-  id                    String   @id @default(cuid())
-  clientId              String
-  client                Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  versicherungen        String?   // JSON
-  gesamtBeitragVorher   Float     @default(0)
-  gesamtBeitragNachher  Float     @default(0)
-  einsparung            Float     @default(0)
-  risikoStatusVorher    String?   // 'kritisch' | 'mittel' | 'gut'
-  risikoStatusNachher   String?   // 'kritisch' | 'mittel' | 'gut'
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id                   String   @id @default(cuid())
+  clientId             String
+  client               Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  versicherungen       String? // JSON
+  gesamtBeitragVorher  Float    @default(0)
+  gesamtBeitragNachher Float    @default(0)
+  einsparung           Float    @default(0)
+  risikoStatusVorher   String? // 'kritisch' | 'mittel' | 'gut'
+  risikoStatusNachher  String? // 'kritisch' | 'mittel' | 'gut'
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@index([clientId])
   @@schema("public")
 }
 
+model EmpfehlungsCheck {
+  id                        String   @id @default(cuid())
+  clientId                  String
+  client                    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  empfehlungen              String? // JSON
+  gesamtEinsparungMonatlich Float    @default(0)
+  gesamtEinsparungJaehrlich Float    @default(0)
+  anzahlOptimierungen       Int      @default(0)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@index([clientId])
+  @@schema("public")
+}
