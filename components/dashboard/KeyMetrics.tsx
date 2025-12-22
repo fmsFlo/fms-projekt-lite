@@ -6,33 +6,36 @@ interface KeyMetricsProps {
 }
 
 export default function KeyMetrics({ funnelStats, callStats }: KeyMetricsProps) {
-  if (!funnelStats && !callStats) {
-    return null
-  }
-
+  // Zeige immer die Metrics an, auch wenn keine Daten vorhanden sind
   const metrics = [
     {
-      value: funnelStats?.leadsCreated || 0,
+      value: funnelStats?.leadsCreated ?? 0,
       label: 'LEADS',
       subtext: 'erstellt',
       trend: null,
     },
     {
-      value: funnelStats?.contacted || 0,
+      value: funnelStats?.contacted ?? 0,
       label: 'KONTAKTIERT',
-      subtext: `${funnelStats?.leadsCreated ? Math.round((funnelStats.contacted / funnelStats.leadsCreated) * 100) : 0}%`,
+      subtext: funnelStats?.leadsCreated && funnelStats.leadsCreated > 0 
+        ? `${Math.round((funnelStats.contacted / funnelStats.leadsCreated) * 100)}%`
+        : '0%',
       trend: null,
     },
     {
-      value: funnelStats?.reached || 0,
+      value: funnelStats?.reached ?? 0,
       label: 'ERREICHT',
-      subtext: `${funnelStats?.contacted ? Math.round((funnelStats.reached / funnelStats.contacted) * 100) : 0}%`,
+      subtext: funnelStats?.contacted && funnelStats.contacted > 0
+        ? `${Math.round((funnelStats.reached / funnelStats.contacted) * 100)}%`
+        : '0%',
       trend: null,
     },
     {
-      value: funnelStats?.meetingSet || 0,
+      value: funnelStats?.meetingSet ?? 0,
       label: 'TERMINE',
-      subtext: `${funnelStats?.reached ? Math.round((funnelStats.meetingSet / funnelStats.reached) * 100) : 0}%`,
+      subtext: funnelStats?.reached && funnelStats.reached > 0
+        ? `${Math.round((funnelStats.meetingSet / funnelStats.reached) * 100)}%`
+        : '0%',
       trend: '↗',
     }
   ]

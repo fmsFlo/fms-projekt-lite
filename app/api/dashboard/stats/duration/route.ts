@@ -36,12 +36,12 @@ export async function GET(req: NextRequest) {
     const params: any[] = []
     
     if (startDate) {
-      query += ' AND "callDate" >= CAST(? AS timestamp)'
+      query += ' AND "callDate" >= ?::timestamp'
       params.push(startDate)
     }
     
     if (endDate) {
-      query += ' AND "callDate" <= CAST(? AS timestamp)'
+      query += ' AND "callDate" <= ?::timestamp'
       params.push(endDate)
     }
     
@@ -52,14 +52,15 @@ export async function GET(req: NextRequest) {
     
     const result = await dbGet(query, params)
     
+    // Konvertiere BigInt zu Number für JSON Serialisierung
     const response = {
-      total_duration: result?.total_duration || 0,
-      avg_duration: Math.round(result?.avg_duration || 0),
-      total_calls: result?.total_calls || 0,
-      appointment_duration: result?.appointment_duration || 0,
-      appointment_count: result?.appointment_count || 0,
+      total_duration: Number(result?.total_duration || 0),
+      avg_duration: Math.round(Number(result?.avg_duration || 0)),
+      total_calls: Number(result?.total_calls || 0),
+      appointment_duration: Number(result?.appointment_duration || 0),
+      appointment_count: Number(result?.appointment_count || 0),
       avg_per_appointment: result?.appointment_count > 0 
-        ? Math.round(result.appointment_duration / result.appointment_count) 
+        ? Math.round(Number(result.appointment_duration) / Number(result.appointment_count)) 
         : 0
     }
     

@@ -226,6 +226,9 @@ model Lead {
   // Automation/Flow Felder
   automationData String? // JSON für Flow-Daten
 
+  // Relations
+  calls Call[]
+
   @@schema("public")
 }
 
@@ -265,6 +268,38 @@ model Opportunity {
   // Air Call Integration (später)
   airCallContactId String? // Air Call Contact ID
 
+  @@schema("public")
+}
+
+// Calls Tabelle für Call Activities
+model Call {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Close CRM IDs
+  closeCallId   String   @unique
+  syncedAt      DateTime @default(now())
+
+  // Call details
+  callDate      DateTime
+  duration      Int      @default(0)
+  direction     String?  @default("outbound")
+  status        String?
+  disposition   String?
+  note          String?
+
+  // Relations
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
+  leadId        String?
+  lead          Lead?    @relation(fields: [leadId], references: [id])
+
+  @@index([closeCallId])
+  @@index([callDate])
+  @@index([userId])
+  @@index([leadId])
+  @@map("calls")
   @@schema("public")
 }
 
@@ -486,6 +521,8 @@ model User {
   resetToken        String?
   resetTokenExpires DateTime?
   visibleCategories String? // JSON-Array der sichtbaren Kategorien (null = alle für Admin, [] = keine Honorarverträge für Berater)
+  closeUserId       String?  @unique // Close CRM user ID
+  calls             Call[]
 
   @@schema("public")
 }

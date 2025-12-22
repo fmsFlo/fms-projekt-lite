@@ -109,11 +109,27 @@ export default function TelefonieDashboardPage() {
         fetch(`/api/dashboard/stats/unassigned?${params}`)
       ])
 
-      if (statsRes.ok) setCallStats(await statsRes.json())
-      if (outcomesRes.ok) setOutcomes(await outcomesRes.json())
-      if (bestTimeRes.ok) setBestTime(await bestTimeRes.json())
-      if (funnelRes.ok) setFunnelStats(await funnelRes.json())
-      if (durationRes.ok) setDuration(await durationRes.json())
+      if (statsRes.ok) {
+        const stats = await statsRes.json()
+        setCallStats(stats || [])
+      }
+      if (outcomesRes.ok) {
+        const outcomes = await outcomesRes.json()
+        setOutcomes(outcomes || [])
+      }
+      if (bestTimeRes.ok) {
+        const bestTime = await bestTimeRes.json()
+        setBestTime(bestTime || [])
+      }
+      if (funnelRes.ok) {
+        const funnel = await funnelRes.json()
+        console.log('[Dashboard] Funnel Stats geladen:', funnel)
+        setFunnelStats(funnel || null)
+      }
+      if (durationRes.ok) {
+        const duration = await durationRes.json()
+        setDuration(duration || null)
+      }
       if (unassignedRes.ok) {
         const unassignedData = await unassignedRes.json()
         setUnassignedCalls(unassignedData.unassignedCalls || 0)
@@ -212,20 +228,41 @@ export default function TelefonieDashboardPage() {
               <button
                 onClick={async () => {
                   try {
-                    const res = await fetch('/api/dashboard/sync', { method: 'POST' })
-                    if (res.ok) {
-                      alert('Synchronisation gestartet')
-                      loadDashboardData()
+                    // Berechne daysBack basierend auf dem aktuellen Datumsbereich
+                    const daysBack = startDate && endDate 
+                      ? Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 7 // +7 Tage Puffer
+                      : 7 // Fallback: 7 Tage
+                    
+                    const res = await fetch('/api/dashboard/sync', { 
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ type: 'calls', daysBack })
+                    })
+                    
+                    if (!res.ok) {
+                      const errorText = await res.text()
+                      console.error('Sync-Fehler Response:', errorText)
+                      try {
+                        const errorJson = JSON.parse(errorText)
+                        alert(`Fehler: ${errorJson.error || 'Unbekannter Fehler'}`)
+                      } catch {
+                        alert(`Fehler: ${res.status} ${res.statusText}`)
+                      }
+                      return
                     }
-                  } catch (error) {
+                    
+                    const result = await res.json()
+                    alert(result.message || 'Synchronisation erfolgreich!')
+                    loadDashboardData()
+                  } catch (error: any) {
                     console.error('Sync-Fehler:', error)
-                    alert('Fehler bei der Synchronisation')
+                    alert(`Fehler bei der Synchronisation: ${error.message}`)
                   }
                 }}
                 className="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors text-sm font-medium"
-                title="Daten synchronisieren"
+                title="Calls von Close CRM synchronisieren"
               >
-                ↻ Sync
+                ↻ Sync Calls
               </button>
             </div>
           </div>

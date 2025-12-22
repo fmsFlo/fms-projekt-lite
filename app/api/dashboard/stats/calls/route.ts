@@ -54,12 +54,12 @@ export async function GET(req: NextRequest) {
     const params: any[] = []
     
     if (startDate) {
-      query += ' AND "callDate" >= CAST(? AS timestamp)'
+      query += ' AND "callDate" >= ?::timestamp'
       params.push(startDate)
     }
     
     if (endDate) {
-      query += ' AND "callDate" <= CAST(? AS timestamp)'
+      query += ' AND "callDate" <= ?::timestamp'
       params.push(endDate)
     }
     
@@ -71,7 +71,16 @@ export async function GET(req: NextRequest) {
     query += ` GROUP BY ${groupBy} ORDER BY period DESC LIMIT 100`
     
     const results = await dbAll(query, params)
-    return NextResponse.json(results)
+    
+    // Konvertiere BigInt zu Number für JSON Serialisierung
+    const serializedResults = results.map((row: any) => ({
+      ...row,
+      total_calls: Number(row.total_calls),
+      reached: Number(row.reached),
+      not_reached: Number(row.not_reached)
+    }))
+    
+    return NextResponse.json(serializedResults)
   } catch (error: any) {
     console.error('Fehler bei /api/dashboard/stats/calls:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })

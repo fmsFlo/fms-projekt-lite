@@ -24,11 +24,22 @@ interface CallStatsChartProps {
 const CallStatsChart: React.FC<CallStatsChartProps> = ({ data }) => {
   const chartData = data.map(item => {
     let periodDisplay = item.period
-    if (item.period.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    
+    // Handle ISO timestamp format (2025-11-27T00:00:00.000Z)
+    if (item.period.includes('T')) {
+      const datePart = item.period.split('T')[0]
+      const [year, month, day] = datePart.split('-')
+      periodDisplay = `${day}.${month}`
+    }
+    // Handle date format (2025-11-27)
+    else if (item.period.match(/^\d{4}-\d{2}-\d{2}$/)) {
       const [year, month, day] = item.period.split('-')
       periodDisplay = `${day}.${month}`
-    } else if (item.period.match(/^\d{4}-\d{2}$/)) {
-      periodDisplay = item.period
+    } 
+    // Handle month format (2025-11)
+    else if (item.period.match(/^\d{4}-\d{2}$/)) {
+      const [year, month] = item.period.split('-')
+      periodDisplay = `${month}/${year}`
     }
     
     return {
@@ -63,8 +74,17 @@ const CallStatsChart: React.FC<CallStatsChartProps> = ({ data }) => {
     return null
   }
 
+  if (!data || data.length === 0) {
+    return (
+      <div className="h-[300px] w-full flex items-center justify-center text-gray-400 text-sm">
+        Keine Daten verfügbar
+      </div>
+    )
+  }
+
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <div className="h-[300px] w-full min-h-[300px]">
+      <ResponsiveContainer width="100%" height="100%" minHeight={300}>
       <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.02)" />
         <XAxis 
@@ -113,7 +133,8 @@ const CallStatsChart: React.FC<CallStatsChartProps> = ({ data }) => {
           activeDot={{ r: 3 }}
         />
       </LineChart>
-    </ResponsiveContainer>
+      </ResponsiveContainer>
+    </div>
   )
 }
 

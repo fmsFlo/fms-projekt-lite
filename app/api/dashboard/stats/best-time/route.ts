@@ -44,12 +44,12 @@ export async function GET(req: NextRequest) {
     const params: any[] = []
     
     if (startDate) {
-      query += ' AND "callDate" >= CAST(? AS timestamp)'
+      query += ' AND "callDate" >= ?::timestamp'
       params.push(startDate)
     }
     
     if (endDate) {
-      query += ' AND "callDate" <= CAST(? AS timestamp)'
+      query += ' AND "callDate" <= ?::timestamp'
       params.push(endDate)
     }
     
@@ -61,7 +61,16 @@ export async function GET(req: NextRequest) {
     query += ' GROUP BY EXTRACT(HOUR FROM "callDate") HAVING COUNT(*) >= 3 ORDER BY success_rate DESC, hour ASC'
     
     const results = await dbAll(query, params)
-    return NextResponse.json(results)
+    
+    // Konvertiere BigInt zu Number für JSON Serialisierung
+    const serializedResults = results.map((row: any) => ({
+      ...row,
+      total_calls: Number(row.total_calls),
+      reached: Number(row.reached),
+      success_rate: Number(row.success_rate)
+    }))
+    
+    return NextResponse.json(serializedResults)
   } catch (error: any) {
     console.error('Fehler bei /api/dashboard/stats/best-time:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })

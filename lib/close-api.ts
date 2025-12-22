@@ -286,6 +286,25 @@ export class CloseApiService {
     }
   }
 
+  // Hole Call Outcomes (für Disposition-Mapping)
+  async getOutcomes() {
+    try {
+      const response = await this.client.get('/outcome/')
+      const outcomes = response.data?.data || []
+      
+      // Erstelle Mapping: outcome_id -> outcome_name
+      const outcomeMap: Record<string, string> = {}
+      outcomes.forEach((outcome: any) => {
+        outcomeMap[outcome.id] = outcome.name || outcome.label || outcome.id
+      })
+      
+      return outcomeMap
+    } catch (error: any) {
+      console.error('[CloseApi] Fehler beim Abrufen der Outcomes:', error.message)
+      return {}
+    }
+  }
+
   static getActivityTypeConfig() {
     return ACTIVITY_TYPE_CONFIG
   }

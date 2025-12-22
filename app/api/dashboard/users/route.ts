@@ -33,6 +33,20 @@ export async function GET(req: NextRequest) {
     // Hole alle User aus Close
     const allUsers = await closeApi.getAllUsers()
 
+    // Hole lokale User mit closeUserId Mapping
+    const localUsers = await prisma.user.findMany({
+      where: { closeUserId: { not: null } },
+      select: { id: true, closeUserId: true, name: true, email: true }
+    })
+
+    // Erstelle Mapping: Close User ID -> Lokale User ID
+    const closeToLocalMap = new Map<string, string>()
+    localUsers.forEach(user => {
+      if (user.closeUserId) {
+        closeToLocalMap.set(user.closeUserId, user.id)
+      }
+    })
+
     // Filtere nur Florian Hörning
     const florianUser = allUsers.find((user: any) => {
       const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim()
@@ -47,8 +61,11 @@ export async function GET(req: NextRequest) {
       })
 
       if (fallbackUser) {
+        // Mappe Close User ID zu lokaler User ID
+        const localUserId = closeToLocalMap.get(fallbackUser.id) || null
+        
         return NextResponse.json([{
-          id: fallbackUser.id,
+          id: localUserId || fallbackUser.id, // Verwende lokale ID wenn verfügbar
           name: `${fallbackUser.first_name || ''} ${fallbackUser.last_name || ''}`.trim() || 'Florian Hörning',
           close_user_id: fallbackUser.id,
           email: fallbackUser.email
@@ -58,12 +75,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([], { status: 404 })
     }
 
-    // Formatiere User für Frontend
+    // Mappe Close User ID zu lokaler User ID
+    const localUserId = closeToLocalMap.get(florianUser.id) || null
+    
+    // Finde lokalen User für zusätzliche Infos
+    const localUser = localUserId ? localUsers.find(u => u.id === localUserId) : null
+
+    // Formatiere User für Frontend - verwende lokale User ID
     const formattedUser = {
-      id: florianUser.id,
-      name: `${florianUser.first_name || ''} ${florianUser.last_name || ''}`.trim() || 'Florian Hörning',
-      close_user_id: florianUser.id,
-      email: florianUser.email
+      id: localUserId || florianUser.id, // ✅ Lokale User ID (wichtig für Stats-Routes)
+      name: localUser?.name || `${florianUser.first_name || ''} ${florianUser.last_name || ''}`.trim() || 'Florian Hörning',
+      close_user_id: florianUser.id, // Für Referenz
+      email: localUser?.email || florianUser.email
     }
 
     return NextResponse.json([formattedUser])

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { CalendlySyncService } from '@/lib/calendly-sync'
+import { CallsSyncService } from '@/lib/calls-sync'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,11 +67,49 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    // Wenn type 'calls' ist, rufe Calls Sync auf
+    if (type === 'calls') {
+      // Hole Close API Token aus den Einstellungen
+      const settings = await prisma.companySettings.findFirst()
+      const closeApiKey = settings?.closeApiKey || process.env.CLOSE_API_KEY || ''
+
+      if (!closeApiKey) {
+        return NextResponse.json({ 
+          error: 'Close API Key ist nicht konfiguriert',
+          note: 'Bitte konfigurieren Sie den Close API Key in den Einstellungen oder als CLOSE_API_KEY Umgebungsvariable'
+        }, { status: 500 })
+      }
+
+      console.log(`[Sync] Starte Calls Sync für ${daysBack} Tage zurück...`)
+
+      const syncService = new CallsSyncService(closeApiKey)
+      
+      // Führe Sync aus
+      let syncResult
+      try {
+        syncResult = await syncService.syncCalls(daysBack)
+      } catch (syncError: any) {
+        console.error('[Sync] Fehler beim Calls Sync:', syncError)
+        return NextResponse.json({ 
+          error: syncError.message || 'Fehler beim Synchronisieren',
+          note: 'Bitte prüfen Sie die Logs für Details'
+        }, { status: 500 })
+      }
+
+      return NextResponse.json({ 
+        success: true, 
+        message: `✅ ${syncResult.synced} neue Calls synchronisiert, ${syncResult.skipped} aktualisiert!`,
+        synced: syncResult.synced,
+        skipped: syncResult.skipped,
+        total: syncResult.total
+      })
+    }
+
     // Fallback für andere Sync-Typen
     return NextResponse.json({ 
       success: true, 
       message: 'Synchronisation gestartet',
-      note: `Sync-Typ "${type}" wird noch nicht unterstützt.`
+      note: `Sync-Typ "${type}" wird noch nicht unterstützt. Verfügbar: 'calendly', 'calls'`
     })
   } catch (error: any) {
     console.error('Fehler bei /api/dashboard/sync:', error)

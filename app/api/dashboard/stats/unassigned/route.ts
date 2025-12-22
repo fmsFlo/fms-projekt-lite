@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { dbGet } from '@/lib/dashboard-db'
+import { dbGet, dbAll } from '@/lib/dashboard-db'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,28 +21,34 @@ export async function GET(req: NextRequest) {
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
     
-    let query = `
-      SELECT COUNT(*) as count
-      FROM calls
-      WHERE "userId" IN (SELECT id FROM "User" WHERE close_user_id = 'UNKNOWN_USER')
-    `
+    console.log('[Unassigned] Query params:', { startDate, endDate })
     
+    // Vereinfachte Query: Zähle alle Calls ohne zugeordneten User
+    // WICHTIG: Spaltennamen sind camelCase (userId, callDate) - müssen in Anführungszeichen
+    let query = 'SELECT COUNT(*) as count FROM calls WHERE "userId" IS NULL'
     const params: any[] = []
     
     if (startDate) {
-      query += ' AND "callDate" >= CAST(? AS timestamp)'
+      query += ' AND "callDate" >= ?::timestamp'
       params.push(startDate)
     }
     
     if (endDate) {
-      query += ' AND "callDate" <= CAST(? AS timestamp)'
+      query += ' AND "callDate" <= ?::timestamp'
       params.push(endDate)
     }
     
+    console.log('[Unassigned] Final query:', query)
+    console.log('[Unassigned] Final params:', params)
+    
     const result = await dbGet(query, params)
-    return NextResponse.json({ unassignedCalls: result?.count || 0 })
+    console.log('[Unassigned] Result:', result)
+    
+    // Konvertiere BigInt zu Number für JSON Serialisierung
+    return NextResponse.json({ unassignedCalls: Number(result?.count || 0) })
   } catch (error: any) {
-    console.error('Fehler bei /api/dashboard/stats/unassigned:', error)
+    console.error('[Unassigned] Fehler bei /api/dashboard/stats/unassigned:', error)
+    console.error('[Unassigned] Error stack:', error.stack)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

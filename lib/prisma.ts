@@ -48,15 +48,20 @@ function optimizeConnectionUrl(url: string): string {
   try {
     const urlObj = new URL(url)
     
-    // Füge Connection Pooling-Parameter hinzu wenn nicht vorhanden
+    // Reduziere connection_limit für bessere Stabilität
     if (!urlObj.searchParams.has('connection_limit')) {
-      urlObj.searchParams.set('connection_limit', '10')
+      urlObj.searchParams.set('connection_limit', '5')
     }
+    // Erhöhe pool_timeout für mehr Toleranz
     if (!urlObj.searchParams.has('pool_timeout')) {
-      urlObj.searchParams.set('pool_timeout', '10')
+      urlObj.searchParams.set('pool_timeout', '20')
     }
     if (!urlObj.searchParams.has('connect_timeout')) {
       urlObj.searchParams.set('connect_timeout', '60')
+    }
+    // Für Neon: pgbouncer mode
+    if (!urlObj.searchParams.has('pgbouncer')) {
+      urlObj.searchParams.set('pgbouncer', 'true')
     }
     
     return urlObj.toString()

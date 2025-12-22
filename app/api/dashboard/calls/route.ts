@@ -27,21 +27,22 @@ export async function GET(req: NextRequest) {
     const offset = Number(searchParams.get('offset') ?? 0)
 
     // Verwende Raw Query da Prisma kein Call Model hat
+    // WICHTIG: Spaltennamen sind camelCase (userId, callDate, leadId) - müssen in Anführungszeichen
     let whereClause = 'WHERE 1=1'
     const params: any[] = []
     
     if (startDate) {
-      whereClause += ' AND "callDate" >= ?'
+      whereClause += ' AND c."callDate" >= ?::timestamp'
       params.push(startDate)
     }
     
     if (endDate) {
-      whereClause += ' AND "callDate" <= ?'
+      whereClause += ' AND c."callDate" <= ?::timestamp'
       params.push(endDate)
     }
     
     if (userId) {
-      whereClause += ' AND "userId" = ?'
+      whereClause += ' AND c."userId" = ?'
       params.push(userId)
     }
     

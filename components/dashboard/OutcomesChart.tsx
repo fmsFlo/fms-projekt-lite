@@ -80,8 +80,17 @@ const OutcomesChart: React.FC<OutcomesChartProps> = ({ data }) => {
     return null
   }
 
+  if (!data || data.length === 0) {
+    return (
+      <div className="h-[300px] w-full flex items-center justify-center text-gray-400 text-sm">
+        Keine Daten verfügbar
+      </div>
+    )
+  }
+
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <div className="h-[300px] w-full min-h-[300px]">
+      <ResponsiveContainer width="100%" height="100%" minHeight={300}>
       <PieChart>
         <Pie
           data={chartData}
@@ -109,7 +118,8 @@ const OutcomesChart: React.FC<OutcomesChartProps> = ({ data }) => {
           iconType="circle"
         />
       </PieChart>
-    </ResponsiveContainer>
+      </ResponsiveContainer>
+    </div>
   )
 }
 
