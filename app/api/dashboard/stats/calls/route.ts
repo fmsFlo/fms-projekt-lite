@@ -54,12 +54,12 @@ export async function GET(req: NextRequest) {
     const params: any[] = []
     
     if (startDate) {
-      query += ' AND "callDate" >= ?'
+      query += ' AND "callDate" >= ?::timestamp'
       params.push(startDate)
     }
     
     if (endDate) {
-      query += ' AND "callDate" <= ?'
+      query += ' AND "callDate" <= ?::timestamp'
       params.push(endDate)
     }
     
