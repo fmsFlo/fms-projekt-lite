@@ -214,11 +214,61 @@ export default async function ClientDetailPage({ params }: Params) {
   // Auth wird von middleware.ts übernommen
 
   // Parallel queries für bessere Performance
+  // Performance: Nur benötigte Felder laden
   const [client, contracts, templates, companySettings] = await Promise.all([
-    prisma.client.findUnique({ where: { id: params.id } }),
-    prisma.contract.findMany({ where: { clientId: params.id }, orderBy: { createdAt: 'desc' } }),
-    prisma.contractTemplate.findMany({ orderBy: { name: 'asc' } }),
-    prisma.companySettings.findFirst()
+    prisma.client.findUnique({ 
+      where: { id: params.id },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        street: true,
+        houseNumber: true,
+        city: true,
+        zip: true,
+        iban: true,
+        crmId: true,
+        isCompany: true,
+        companyName: true,
+        birthDate: true,
+        profession: true,
+        employmentStatus: true,
+        salaryGrade: true,
+        grvInsuranceStatus: true,
+        targetPensionNetto: true,
+        desiredRetirementAge: true,
+        monthlySavings: true,
+      }
+    }),
+    prisma.contract.findMany({ 
+      where: { clientId: params.id }, 
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        createdAt: true,
+        templateSlug: true,
+        sevdeskInvoiceId: true,
+        sevdeskInvoiceNumber: true,
+      }
+    }),
+    prisma.contractTemplate.findMany({ 
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        category: true,
+        fields: true,
+      }
+    }),
+    prisma.companySettings.findFirst({
+      select: {
+        personalName: true,
+      }
+    })
   ])
 
   if (!client) return (

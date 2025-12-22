@@ -8,9 +8,32 @@ export default async function ClientsPage() {
   // Auth wird von middleware.ts übernommen
   try {
     // Lade Clients - verwende try-catch für fehlende Felder
+    // Performance: Nur benötigte Felder laden
     let clients
     try {
-      clients = await prisma.client.findMany({ orderBy: { createdAt: 'desc' } })
+      clients = await prisma.client.findMany({ 
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          street: true,
+          houseNumber: true,
+          city: true,
+          zip: true,
+          iban: true,
+          crmId: true,
+          createdAt: true,
+          updatedAt: true,
+          birthDate: true,
+          // Optional: Rentenkonzept-Felder nur wenn benötigt
+          targetPensionNetto: true,
+          desiredRetirementAge: true,
+          monthlySavings: true,
+        }
+      })
     } catch (schemaError: any) {
       // Falls Felder fehlen, lade ohne die optionalen Felder
       if (schemaError.message?.includes('targetPensionNetto') || schemaError.message?.includes('does not exist')) {
