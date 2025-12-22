@@ -6,29 +6,51 @@ export const runtime = 'nodejs'
 
 export default async function ClientsPage() {
   // Auth wird von middleware.ts übernommen
-  const clients = await prisma.client.findMany({ orderBy: { createdAt: 'desc' } })
-  return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold" style={{ color: 'var(--color-text-primary)' }}>Kunden</h1>
-          <a 
-            href="/clients/new" 
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all shadow-sm hover:shadow-md"
-            style={{ 
-              backgroundColor: 'var(--color-primary)',
-              color: 'white'
-            }}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span className="hidden sm:inline">Neu</span>
-          </a>
+  try {
+    const clients = await prisma.client.findMany({ orderBy: { createdAt: 'desc' } })
+    
+    // Serialisiere die Daten für Client Component (Date-Objekte zu Strings)
+    const serializedClients = clients.map(client => ({
+      ...client,
+      createdAt: client.createdAt.toISOString(),
+      updatedAt: client.updatedAt.toISOString(),
+      birthDate: client.birthDate ? client.birthDate.toISOString() : null,
+    }))
+    
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl md:text-3xl font-bold" style={{ color: 'var(--color-text-primary)' }}>Kunden</h1>
+            <a 
+              href="/clients/new" 
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all shadow-sm hover:shadow-md"
+              style={{ 
+                backgroundColor: 'var(--color-primary)',
+                color: 'white'
+              }}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="hidden sm:inline">Neu</span>
+            </a>
+          </div>
+          <ClientsClient initialClients={serializedClients} />
         </div>
-        <ClientsClient initialClients={clients} />
       </div>
-    </div>
-  )
+    )
+  } catch (error: any) {
+    console.error('❌ Fehler beim Laden der Clients:', error)
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        <div className="text-red-600">
+          <h2 className="text-xl font-bold mb-2">Fehler beim Laden der Kunden</h2>
+          <p className="text-sm">{error.message || 'Unbekannter Fehler'}</p>
+          <p className="text-xs mt-2">Bitte prüfe die Server-Logs für Details.</p>
+        </div>
+      </div>
+    )
+  }
 }
 

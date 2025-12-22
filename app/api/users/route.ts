@@ -28,14 +28,14 @@ const updateUserSchema = z.object({
 
 export async function GET(req: NextRequest) {
   try {
-    // Prüfe Session manuell
-    const session = req.cookies.get('session')?.value
+    // Prüfe Session mit getUserId/getUserRole
+    const { getUserId, getUserRole } = await import('@/lib/auth')
+    const userId = getUserId(req)
+    const role = getUserRole(req)
     
-    if (!session || !session.includes(':')) {
+    if (!userId || !role) {
       return NextResponse.json({ message: 'Nicht authentifiziert' }, { status: 401 })
     }
-    
-    const [role] = session.split(':')
     
     if (role !== 'admin') {
       return NextResponse.json({ message: 'Nur Administratoren können Benutzer anzeigen' }, { status: 403 })
@@ -67,11 +67,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = req.cookies.get('session')?.value
-    if (!session || !session.includes(':')) {
+    const { getUserId, getUserRole } = await import('@/lib/auth')
+    const userId = getUserId(req)
+    const role = getUserRole(req)
+    
+    if (!userId || !role) {
       return NextResponse.json({ message: 'Nicht authentifiziert' }, { status: 401 })
     }
-    const [role] = session.split(':')
+    
     if (role !== 'admin') {
       return NextResponse.json({ message: 'Nur Administratoren können Benutzer erstellen' }, { status: 403 })
     }
@@ -124,11 +127,14 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const session = req.cookies.get('session')?.value
-    if (!session || !session.includes(':')) {
+    const { getUserId, getUserRole } = await import('@/lib/auth')
+    const userId = getUserId(req)
+    const role = getUserRole(req)
+    
+    if (!userId || !role) {
       return NextResponse.json({ message: 'Nicht authentifiziert' }, { status: 401 })
     }
-    const [role] = session.split(':')
+    
     if (role !== 'admin') {
       return NextResponse.json({ message: 'Nur Administratoren können Benutzer bearbeiten' }, { status: 403 })
     }
@@ -190,11 +196,14 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const session = req.cookies.get('session')?.value
-    if (!session || !session.includes(':')) {
+    const { getUserId, getUserRole } = await import('@/lib/auth')
+    const userId = getUserId(req)
+    const role = getUserRole(req)
+    
+    if (!userId || !role) {
       return NextResponse.json({ message: 'Nicht authentifiziert' }, { status: 401 })
     }
-    const [role] = session.split(':')
+    
     if (role !== 'admin') {
       return NextResponse.json({ message: 'Nur Administratoren können Benutzer löschen' }, { status: 403 })
     }
