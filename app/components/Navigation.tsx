@@ -105,7 +105,7 @@ export function Navigation() {
             color: '#000',
             textDecoration: 'none',
           }}>
-            iFinance
+            qapix
           </Link>
           <Link href="/login" style={{
             color: '#007AFF',
@@ -142,7 +142,7 @@ export function Navigation() {
             fontWeight: 700,
             color: '#000',
           }}>
-            iFinance
+            qapix
           </div>
           <div style={{ color: '#666', fontSize: '0.875rem' }}>Lädt...</div>
         </div>
@@ -174,7 +174,7 @@ export function Navigation() {
           color: '#000',
           textDecoration: 'none',
         }}>
-          iFinance
+          qapix
         </Link>
         
         {/* Desktop Navigation */}

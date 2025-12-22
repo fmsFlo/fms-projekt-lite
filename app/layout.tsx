@@ -6,7 +6,7 @@ import { SettingsProvider } from '@/lib/settings-context'
 import { PrivacyProvider } from '@/app/contexts/PrivacyContext'
 
 export const metadata = {
-  title: 'iFinance',
+  title: 'qapix',
   description: 'Kundenverwaltung, Verträge und Analysen'
 }
 

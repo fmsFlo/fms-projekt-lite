@@ -39,10 +39,39 @@ if (databaseUrl.startsWith('file:') && process.env.NODE_ENV === 'development') {
   console.warn('⚠️  2. Set DATABASE_URL=postgresql://postgres:postgres@localhost:5432/docreate_dev in .env.local')
 }
 
+// Optimiere Connection URL für besseres Pooling (verhindert "Connection Closed" Fehler)
+function optimizeConnectionUrl(url: string): string {
+  if (!url.startsWith('postgresql://') && !url.startsWith('postgres://')) {
+    return url
+  }
+  
+  try {
+    const urlObj = new URL(url)
+    
+    // Füge Connection Pooling-Parameter hinzu wenn nicht vorhanden
+    if (!urlObj.searchParams.has('connection_limit')) {
+      urlObj.searchParams.set('connection_limit', '10')
+    }
+    if (!urlObj.searchParams.has('pool_timeout')) {
+      urlObj.searchParams.set('pool_timeout', '10')
+    }
+    if (!urlObj.searchParams.has('connect_timeout')) {
+      urlObj.searchParams.set('connect_timeout', '60')
+    }
+    
+    return urlObj.toString()
+  } catch {
+    // Falls URL-Parsing fehlschlägt, verwende Original-URL
+    return url
+  }
+}
+
+const optimizedDatabaseUrl = optimizeConnectionUrl(databaseUrl)
+
 export const prisma = global.prisma || new PrismaClient({
   datasources: {
     db: {
-      url: databaseUrl
+      url: optimizedDatabaseUrl
     }
   },
   log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],

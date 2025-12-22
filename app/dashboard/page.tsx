@@ -50,7 +50,7 @@ export default function DashboardPage() {
       ) : (
         <div className="max-w-5xl mx-auto px-4 py-6 space-y-8" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
       <div>
-        <h1 className="text-3xl font-bold" style={{ color: 'var(--color-text-primary)' }}>Willkommen bei iFinance</h1>
+        <h1 className="text-3xl font-bold" style={{ color: 'var(--color-text-primary)' }}>Willkommen bei qapix</h1>
         <p className="mt-2" style={{ color: 'var(--color-text-secondary)' }}>Ihr zentrales System für Kundenverwaltung, Verträge und Analysen</p>
       </div>
 
