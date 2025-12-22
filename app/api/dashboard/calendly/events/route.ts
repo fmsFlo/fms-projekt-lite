@@ -40,12 +40,12 @@ export async function GET(req: NextRequest) {
     const params: any[] = [];
 
     if (startDate) {
-      where += " AND ce.\"startTime\" >= ?";
+      where += " AND ce.\"startTime\" >= CAST(? AS timestamp)";
       params.push(startDate);
     }
 
     if (endDate) {
-      where += " AND ce.\"startTime\" <= ?";
+      where += " AND ce.\"startTime\" <= CAST(? AS timestamp)";
       params.push(endDate);
     }
 

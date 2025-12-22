@@ -30,12 +30,12 @@ export async function GET(req: NextRequest) {
     const params: any[] = []
     
     if (startDate) {
-      query += ' AND "callDate" >= ?::timestamp'
+      query += ' AND "callDate" >= CAST(? AS timestamp)'
       params.push(startDate)
     }
     
     if (endDate) {
-      query += ' AND "callDate" <= ?::timestamp'
+      query += ' AND "callDate" <= CAST(? AS timestamp)'
       params.push(endDate)
     }
     

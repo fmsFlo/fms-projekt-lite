@@ -26,12 +26,12 @@ export async function GET(req: NextRequest) {
     const params: any[] = []
     
     if (startDate) {
-      dateFilter += ' AND "createdAt" >= ?::timestamp'
+      dateFilter += ' AND "createdAt" >= CAST(? AS timestamp)'
       params.push(startDate)
     }
     
     if (endDate) {
-      dateFilter += ' AND "createdAt" <= ?::timestamp'
+      dateFilter += ' AND "createdAt" <= CAST(? AS timestamp)'
       params.push(endDate)
     }
     
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     
     // 2. Kontaktiert (mindestens 1 Call) - UNIQUE lead_ids
     let contactedParams = [...params]
-    let contactedFilter = dateFilter.replace('"createdAt"', 'c."callDate"').replace('::timestamp', '::timestamp')
+    let contactedFilter = dateFilter.replace('"createdAt"', 'c."callDate"')
     if (userId) {
       contactedFilter += ' AND c."userId" = ?'
       contactedParams.push(userId)
