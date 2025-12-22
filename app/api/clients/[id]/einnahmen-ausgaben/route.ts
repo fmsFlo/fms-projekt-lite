@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getServerSession } from '@/lib/auth'
+import { getUserId } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -11,8 +11,8 @@ interface Params {
 
 export async function GET(_req: Request, { params }: Params) {
   try {
-    const session = await getServerSession()
-    if (!session || !session.userId) {
+    const userId = getUserId(_req)
+    if (!userId) {
       return NextResponse.json({ message: 'Nicht autorisiert' }, { status: 401 })
     }
 
@@ -53,8 +53,8 @@ export async function GET(_req: Request, { params }: Params) {
 
 export async function POST(req: Request, { params }: Params) {
   try {
-    const session = await getServerSession()
-    if (!session || !session.userId) {
+    const userId = getUserId(req)
+    if (!userId) {
       return NextResponse.json({ message: 'Nicht autorisiert' }, { status: 401 })
     }
 
