@@ -60,12 +60,29 @@ export default function ClientsClient({ initialClients }: { initialClients: Clie
       
       const data = await res.json()
       console.log('🔍 Make Response:', data)
+      console.log('🔍 Make Response Type:', typeof data)
+      console.log('🔍 Make Response Keys:', Object.keys(data || {}))
       console.log('📊 Results:', data.results)
+      console.log('📊 Results Type:', typeof data.results)
+      console.log('📊 Results is Array:', Array.isArray(data.results))
+      console.log('📊 Results Length:', data.results?.length || 0)
       
       if (!data.results) {
-        alert('⚠️ Make hat keine "results" zurückgegeben. Prüfe das Response-Format in Make!')
+        console.error('❌ Make hat keine "results" zurückgegeben!')
         console.error('Erwartetes Format: {"results": [...]}')
-        console.error('Erhalten:', data)
+        console.error('Erhalten:', JSON.stringify(data, null, 2))
+        alert('⚠️ Make hat keine "results" zurückgegeben. Prüfe das Response-Format in Make! Siehe Console für Details.')
+      } else if (!Array.isArray(data.results)) {
+        console.error('❌ data.results ist kein Array!')
+        console.error('Type:', typeof data.results)
+        console.error('Value:', data.results)
+        alert('⚠️ Make "results" ist kein Array. Prüfe das Response-Format in Make!')
+      } else if (data.results.length === 0) {
+        console.warn('⚠️ Make hat leeres Array zurückgegeben')
+        console.warn('Vollständige Response:', JSON.stringify(data, null, 2))
+      } else {
+        console.log('✅ Make hat', data.results.length, 'Ergebnisse zurückgegeben')
+        console.log('Erstes Ergebnis:', data.results[0])
       }
       
       setMakeResults(data.results || [])

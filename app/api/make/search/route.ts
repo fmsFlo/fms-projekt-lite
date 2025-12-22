@@ -46,21 +46,58 @@ export async function POST(req: Request) {
             try {
               const data = await response.json()
               console.log('📥 Make Raw Response:', JSON.stringify(data, null, 2))
+              console.log('📥 Make Response Type:', typeof data)
+              console.log('📥 Make Response is Array:', Array.isArray(data))
+              console.log('📥 Make Response Keys:', Object.keys(data || {}))
               
-              // Erwarte Format: { results: [...] } oder { clients: [...] }
+              // Erwarte Format: { results: [...] } oder { clients: [...] } oder { data: [...] }
               // Manchmal gibt Make ein Array direkt zurück
               if (Array.isArray(data)) {
-                console.log('✅ Make gibt Array direkt zurück')
+                console.log('✅ Make gibt Array direkt zurück, Länge:', data.length)
                 return NextResponse.json({ results: data })
               }
               
-              if (data.results) {
-                console.log('✅ Make gibt {results: [...]} zurück')
+              // Prüfe verschiedene mögliche Feldnamen
+              if (data.results && Array.isArray(data.results)) {
+                console.log('✅ Make gibt {results: [...]} zurück, Länge:', data.results.length)
                 return NextResponse.json({ results: data.results })
               }
               
+              if (data.clients && Array.isArray(data.clients)) {
+                console.log('✅ Make gibt {clients: [...]} zurück, Länge:', data.clients.length)
+                return NextResponse.json({ results: data.clients })
+              }
+              
+              if (data.data && Array.isArray(data.data)) {
+                console.log('✅ Make gibt {data: [...]} zurück, Länge:', data.data.length)
+                return NextResponse.json({ results: data.data })
+              }
+              
+              if (data.items && Array.isArray(data.items)) {
+                console.log('✅ Make gibt {items: [...]} zurück, Länge:', data.items.length)
+                return NextResponse.json({ results: data.items })
+              }
+              
+              // Prüfe ob es ein einzelnes Objekt ist (nicht Array)
+              if (data && typeof data === 'object' && !Array.isArray(data)) {
+                // Wenn es ein einzelnes Client-Objekt ist, wrappe es in ein Array
+                if (data.firstName || data.email || data.lastName) {
+                  console.log('✅ Make gibt einzelnes Client-Objekt zurück, wrappe es in Array')
+                  return NextResponse.json({ results: [data] })
+                }
+              }
+              
               console.log('⚠️ Unbekanntes Format von Make:', data)
-              return NextResponse.json(data)
+              console.log('⚠️ Versuche trotzdem, alle Array-Felder zu finden...')
+              // Versuche alle Array-Felder zu finden
+              for (const key in data) {
+                if (Array.isArray(data[key])) {
+                  console.log(`✅ Gefunden: data.${key} ist ein Array mit ${data[key].length} Elementen`)
+                  return NextResponse.json({ results: data[key] })
+                }
+              }
+              
+              return NextResponse.json({ results: [] })
             } catch (jsonError: any) {
               console.error('❌ JSON Parse Error:', jsonError.message)
               const text = await response.text()
