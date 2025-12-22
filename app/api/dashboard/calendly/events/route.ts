@@ -54,10 +54,26 @@ export async function GET(req: NextRequest) {
       params.push(userId);
     }
 
-    // Base query - Prisma verwendet PascalCase für Spaltennamen, snake_case für Tabellennamen (dank @@map)
+    // Base query - Prisma verwendet PascalCase für Spaltennamen, aber Frontend erwartet snake_case
+    // Daher müssen wir Aliase verwenden
     let query = `
       SELECT 
-        ce.*,
+        ce.id,
+        ce."createdAt" as created_at,
+        ce."updatedAt" as updated_at,
+        ce."calendlyEventUri" as calendly_event_uri,
+        ce."eventTypeName" as event_type_name,
+        ce."mappedType" as mapped_type,
+        ce."startTime" as start_time,
+        ce."endTime" as end_time,
+        ce.status,
+        ce."hostName" as host_name,
+        ce."hostEmail" as host_email,
+        ce."userId" as user_id,
+        ce."inviteeName" as invitee_name,
+        ce."inviteeEmail" as invitee_email,
+        ce."leadId" as lead_id,
+        ce."syncedAt" as synced_at,
         COALESCE(u.name, ce."hostName") AS host_name
       FROM calendly_events ce
       LEFT JOIN "User" u ON ce."userId" = u.id
