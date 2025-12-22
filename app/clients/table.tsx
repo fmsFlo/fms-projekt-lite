@@ -94,15 +94,49 @@ export default function ClientsClient({ initialClients }: { initialClients: Clie
     }
   }
 
+  // Hilfsfunktion: Trenne Straße und Hausnummer wenn sie kombiniert sind
+  function splitStreetAndNumber(address: string | null | undefined): { street: string | null, houseNumber: string | null } {
+    if (!address || !address.trim()) {
+      return { street: null, houseNumber: null }
+    }
+    
+    // Wenn bereits getrennt, verwende die Werte
+    // (wird von Make bereits getrennt übergeben)
+    
+    // Versuche Straße und Hausnummer zu trennen
+    // Pattern: Text + Leerzeichen + Zahl (z.B. "Hauptstr. 10" oder "Musterweg 123a")
+    const match = address.trim().match(/^(.+?)\s+(\d+[a-zA-Z]?)$/)
+    if (match) {
+      return {
+        street: match[1].trim() || null,
+        houseNumber: match[2].trim() || null
+      }
+    }
+    
+    // Wenn kein Match, ist es wahrscheinlich nur die Straße
+    return { street: address.trim(), houseNumber: null }
+  }
+
   async function importClient(clientData: Partial<Client>) {
     setLoadingImport(true)
     try {
+      // Trenne Straße und Hausnummer falls kombiniert
+      let street = clientData.street || null
+      let houseNumber = clientData.houseNumber || null
+      
+      // Wenn street gefüllt ist aber houseNumber leer, versuche zu trennen
+      if (street && !houseNumber) {
+        const split = splitStreetAndNumber(street)
+        street = split.street
+        houseNumber = split.houseNumber
+      }
+      
       // Stelle sicher, dass lastName nicht undefined ist
       const cleanData = {
         ...clientData,
         lastName: clientData.lastName || '',
-        street: clientData.street || null,
-        houseNumber: clientData.houseNumber || null,
+        street: street,
+        houseNumber: houseNumber,
         city: clientData.city || null,
         zip: clientData.zip || null,
         iban: clientData.iban || null,

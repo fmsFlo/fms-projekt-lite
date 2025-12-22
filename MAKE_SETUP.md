@@ -115,11 +115,31 @@ crmId: {{3.item.id}}
 
 ```json
 {
-  "results": {{5.array}}
+  "results": [
+    {
+      "firstName": "{{4.firstName}}",
+      "lastName": "{{4.lastName}}",
+      "email": "{{4.email}}",
+      "phone": "{{4.phone}}",
+      "street": "{{4.street}}",
+      "houseNumber": "{{4.houseNumber}}",
+      "city": "{{4.city}}",
+      "zip": "{{4.zip}}",
+      "iban": "{{4.iban}}",
+      "crmId": "{{4.crmId}}"
+    }
+  ]
 }
 ```
 
-Wobei `{{5.array}}` das Ergebnis vom Aggregator ist (die Nummer kann variieren).
+**WICHTIG**: 
+- Ersetze `{{4}}` mit der Nummer deines "Set multiple variables" Moduls
+- Wenn du einen Array Aggregator verwendest, nutze: `{"results": {{5.array}}}`
+
+**Für Close.com mit Adress-Trennung** (siehe `MAKE_WEBHOOK_RESPONSE_TEMPLATE.md` für Details):
+- Close liefert Adresse als ein Feld: "Hauptstr. 10"
+- Verwende Text Parser oder String-Funktionen zum Trennen
+- Oder sende komplette Adresse als `street` und lasse `houseNumber` leer
 
 ---
 
