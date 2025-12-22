@@ -24,18 +24,18 @@ export async function GET(req: NextRequest) {
     let query = `
       SELECT COUNT(*) as count
       FROM calls
-      WHERE user_id IN (SELECT id FROM users WHERE close_user_id = 'UNKNOWN_USER')
+      WHERE "userId" IN (SELECT id FROM "User" WHERE close_user_id = 'UNKNOWN_USER')
     `
     
     const params: any[] = []
     
     if (startDate) {
-      query += ' AND call_date >= ?'
+      query += ' AND "callDate" >= ?'
       params.push(startDate)
     }
     
     if (endDate) {
-      query += ' AND call_date <= ?'
+      query += ' AND "callDate" <= ?'
       params.push(endDate)
     }
     

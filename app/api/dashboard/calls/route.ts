@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { prisma } from "@/lib/prisma";
+import { dbAll } from '@/lib/dashboard-db'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -26,23 +26,40 @@ export async function GET(req: NextRequest) {
     const limit = Number(searchParams.get('limit') ?? 100)
     const offset = Number(searchParams.get('offset') ?? 0)
 
-    // Prisma Query
-    const calls = await prisma.calls.findMany({
-      where: {
-        ...(startDate && { call_date: { gte: new Date(startDate) } }),
-        ...(endDate && { call_date: { lte: new Date(endDate) } }),
-        ...(userId && { user_id: userId })
-      },
-      include: {
-        user: true,
-        lead: true
-      },
-      orderBy: {
-        call_date: 'desc'
-      },
-      take: limit,
-      skip: offset
-    })
+    // Verwende Raw Query da Prisma kein Call Model hat
+    let whereClause = 'WHERE 1=1'
+    const params: any[] = []
+    
+    if (startDate) {
+      whereClause += ' AND "callDate" >= ?'
+      params.push(startDate)
+    }
+    
+    if (endDate) {
+      whereClause += ' AND "callDate" <= ?'
+      params.push(endDate)
+    }
+    
+    if (userId) {
+      whereClause += ' AND "userId" = ?'
+      params.push(userId)
+    }
+    
+    const query = `
+      SELECT 
+        c.*,
+        u.name as user_name,
+        l.name as lead_name
+      FROM calls c
+      LEFT JOIN "User" u ON c."userId" = u.id
+      LEFT JOIN leads l ON c."leadId" = l.id
+      ${whereClause}
+      ORDER BY c."callDate" DESC
+      LIMIT ? OFFSET ?
+    `
+    
+    params.push(limit, offset)
+    const calls = await dbAll(query, params)
 
     return NextResponse.json(calls)
 

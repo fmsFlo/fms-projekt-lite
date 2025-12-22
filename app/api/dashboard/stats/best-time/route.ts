@@ -22,9 +22,10 @@ export async function GET(req: NextRequest) {
     const endDate = searchParams.get('endDate')
     const userId = searchParams.get('userId')
     
+    // PostgreSQL verwendet EXTRACT statt strftime
     let query = `
       SELECT 
-        strftime('%H', call_date) as hour,
+        EXTRACT(HOUR FROM "callDate")::INTEGER as hour,
         COUNT(*) as total_calls,
         SUM(CASE 
           WHEN status = 'completed' AND duration > 0 
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
           WHEN status = 'completed' AND duration > 0 
           THEN 1 
           ELSE 0 
-        END) AS FLOAT) / COUNT(*) * 100 as success_rate
+        END) AS FLOAT) / NULLIF(COUNT(*), 0) * 100 as success_rate
       FROM calls
       WHERE direction = 'outbound'
     `
@@ -43,21 +44,21 @@ export async function GET(req: NextRequest) {
     const params: any[] = []
     
     if (startDate) {
-      query += ' AND call_date >= ?'
+      query += ' AND "callDate" >= ?'
       params.push(startDate)
     }
     
     if (endDate) {
-      query += ' AND call_date <= ?'
+      query += ' AND "callDate" <= ?'
       params.push(endDate)
     }
     
     if (userId) {
-      query += ' AND user_id = ?'
+      query += ' AND "userId" = ?'
       params.push(userId)
     }
     
-    query += ' GROUP BY hour HAVING total_calls >= 3 ORDER BY success_rate DESC, hour ASC'
+    query += ' GROUP BY EXTRACT(HOUR FROM "callDate") HAVING COUNT(*) >= 3 ORDER BY success_rate DESC, hour ASC'
     
     const results = await dbAll(query, params)
     return NextResponse.json(results)

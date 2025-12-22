@@ -36,17 +36,17 @@ export async function GET(req: NextRequest) {
     const params: any[] = []
     
     if (startDate) {
-      query += ' AND call_date >= ?'
+      query += ' AND "callDate" >= ?'
       params.push(startDate)
     }
     
     if (endDate) {
-      query += ' AND call_date <= ?'
+      query += ' AND "callDate" <= ?'
       params.push(endDate)
     }
     
     if (userId) {
-      query += ' AND user_id = ?'
+      query += ' AND "userId" = ?'
       params.push(userId)
     }
     

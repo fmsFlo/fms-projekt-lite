@@ -110,12 +110,90 @@ async function createCustomActivitiesTable() {
   }
 }
 
+async function createCallsTable() {
+  const exists = await checkTableExists('calls')
+  if (exists) {
+    console.log('✅ Tabelle calls existiert bereits')
+    return
+  }
+
+  console.log('🔧 Erstelle Tabelle calls...')
+  
+  try {
+    // Erstelle Tabelle
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE calls (
+        id SERIAL PRIMARY KEY,
+        "closeCallId" TEXT UNIQUE,
+        "leadId" TEXT,
+        "userId" TEXT,
+        "callDate" TIMESTAMP NOT NULL,
+        duration INTEGER DEFAULT 0,
+        direction TEXT,
+        status TEXT,
+        disposition TEXT,
+        note TEXT,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `)
+    
+    // Erstelle Indizes separat
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS calls_closeCallId_idx ON calls("closeCallId")`)
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS calls_leadId_idx ON calls("leadId")`)
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS calls_userId_idx ON calls("userId")`)
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS calls_callDate_idx ON calls("callDate")`)
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS calls_status_idx ON calls(status)`)
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS calls_disposition_idx ON calls(disposition)`)
+    
+    console.log('✅ Tabelle calls erstellt')
+  } catch (error) {
+    console.error('❌ Fehler beim Erstellen von calls:', error.message)
+  }
+}
+
+async function createLeadsTable() {
+  const exists = await checkTableExists('leads')
+  if (exists) {
+    console.log('✅ Tabelle leads existiert bereits')
+    return
+  }
+
+  console.log('🔧 Erstelle Tabelle leads...')
+  
+  try {
+    // Erstelle Tabelle
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE leads (
+        id TEXT PRIMARY KEY,
+        "closeLeadId" TEXT UNIQUE,
+        name TEXT,
+        email TEXT,
+        phone TEXT,
+        status TEXT,
+        "firstContactDate" TIMESTAMP,
+        "assignedUserId" TEXT,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `)
+    
+    // Erstelle Indizes separat
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS leads_closeLeadId_idx ON leads("closeLeadId")`)
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS leads_assignedUserId_idx ON leads("assignedUserId")`)
+    
+    console.log('✅ Tabelle leads erstellt')
+  } catch (error) {
+    console.error('❌ Fehler beim Erstellen von leads:', error.message)
+  }
+}
+
 async function main() {
   console.log('🔧 Prüfe und erstelle Sales Dashboard Tabellen...\n')
   
   try {
     await createCalendlyEventsTable()
     await createCustomActivitiesTable()
+    await createCallsTable()
+    await createLeadsTable()
     
     console.log('\n✅ Fertig!')
   } catch (error) {

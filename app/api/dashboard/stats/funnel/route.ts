@@ -26,12 +26,12 @@ export async function GET(req: NextRequest) {
     const params: any[] = []
     
     if (startDate) {
-      dateFilter += ' AND created_at >= ?'
+      dateFilter += ' AND "createdAt" >= ?'
       params.push(startDate)
     }
     
     if (endDate) {
-      dateFilter += ' AND created_at <= ?'
+      dateFilter += ' AND "createdAt" <= ?'
       params.push(endDate)
     }
     
@@ -42,15 +42,15 @@ export async function GET(req: NextRequest) {
     
     // 2. Kontaktiert (mindestens 1 Call) - UNIQUE lead_ids
     let contactedParams = [...params]
-    let contactedFilter = dateFilter.replace('created_at', 'c.call_date')
+    let contactedFilter = dateFilter.replace('"createdAt"', 'c."callDate"')
     if (userId) {
-      contactedFilter += ' AND c.user_id = ?'
+      contactedFilter += ' AND c."userId" = ?'
       contactedParams.push(userId)
     }
     const contactedQuery = `
-      SELECT COUNT(DISTINCT c.lead_id) as count
+      SELECT COUNT(DISTINCT c."leadId") as count
       FROM calls c
-      WHERE c.lead_id IS NOT NULL 
+      WHERE c."leadId" IS NOT NULL 
         AND c.direction = 'outbound'
         ${contactedFilter}
     `
@@ -60,9 +60,9 @@ export async function GET(req: NextRequest) {
     // 3. Erreicht - UNIQUE lead_ids
     let reachedParams = [...contactedParams]
     const reachedQuery = `
-      SELECT COUNT(DISTINCT c.lead_id) as count
+      SELECT COUNT(DISTINCT c."leadId") as count
       FROM calls c
-      WHERE c.lead_id IS NOT NULL 
+      WHERE c."leadId" IS NOT NULL 
         AND c.direction = 'outbound'
         AND (
           (c.status = 'completed' AND c.duration > 0)
@@ -79,9 +79,9 @@ export async function GET(req: NextRequest) {
     // 4. Termin vereinbart
     let meetingParams = [...contactedParams]
     const meetingQuery = `
-      SELECT COUNT(DISTINCT c.lead_id) as count
+      SELECT COUNT(DISTINCT c."leadId") as count
       FROM calls c
-      WHERE c.lead_id IS NOT NULL 
+      WHERE c."leadId" IS NOT NULL 
         AND c.direction = 'outbound'
         AND c.disposition LIKE 'Termin vereinbart%' 
         ${contactedFilter}
@@ -93,10 +93,10 @@ export async function GET(req: NextRequest) {
     const avgAttemptsQuery = `
       WITH first_reached AS (
         SELECT 
-          c.lead_id,
-          MIN(c.call_date) as first_reached_date
+          c."leadId" as lead_id,
+          MIN(c."callDate") as first_reached_date
         FROM calls c
-        WHERE c.lead_id IS NOT NULL 
+        WHERE c."leadId" IS NOT NULL 
           AND c.direction = 'outbound'
           AND (
             (c.status = 'completed' AND c.duration > 0)
@@ -106,18 +106,18 @@ export async function GET(req: NextRequest) {
             )
           )
           ${contactedFilter}
-        GROUP BY c.lead_id
+        GROUP BY c."leadId"
       ),
       lead_attempts AS (
         SELECT 
-          c.lead_id,
+          c."leadId" as lead_id,
           COUNT(*) as attempts_to_reach
         FROM calls c
-        INNER JOIN first_reached fr ON c.lead_id = fr.lead_id
+        INNER JOIN first_reached fr ON c."leadId" = fr.lead_id
         WHERE c.direction = 'outbound'
-          AND c.call_date <= fr.first_reached_date 
+          AND c."callDate" <= fr.first_reached_date 
           ${contactedFilter}
-        GROUP BY c.lead_id
+        GROUP BY c."leadId"
       )
       SELECT AVG(attempts_to_reach) as avg_attempts
       FROM lead_attempts
