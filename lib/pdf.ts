@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import Handlebars from 'handlebars'
 import puppeteer from 'puppeteer'
+import puppeteerCore from 'puppeteer-core'
 
 export async function renderHandlebarsToHtml(templateSlug: string, data: Record<string, unknown>): Promise<string> {
   const root = process.cwd()
@@ -81,9 +82,8 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
     try {
       console.log('[PDF] Netlify-Umgebung erkannt, verwende @sparticuz/chromium')
       
-      // Dynamische Imports für Netlify (ES Modules)
-      const chromium = await import('@sparticuz/chromium')
-      const puppeteerCore = await import('puppeteer-core')
+      // Statischer Import für @sparticuz/chromium
+      const chromium = require('@sparticuz/chromium')
       
       // Chromium für Netlify konfigurieren
       if (chromium.setGraphicsMode && typeof chromium.setGraphicsMode === 'function') {
@@ -104,7 +104,7 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
         throw new Error('Chromium executablePath konnte nicht ermittelt werden. Bitte stellen Sie sicher, dass @sparticuz/chromium korrekt installiert ist.')
       }
       
-      browser = await puppeteerCore.default.launch({
+      browser = await puppeteerCore.launch({
         args: chromium.args || [],
         defaultViewport: chromium.defaultViewport || { width: 1920, height: 1080 },
         executablePath: executablePath,

@@ -9,6 +9,8 @@ export const revalidate = 0
 
 export async function GET() {
   try {
+    console.log('[Templates] Fetching all templates...')
+    
     const templates = await prisma.contractTemplate.findMany({
       select: {
         id: true,
@@ -19,9 +21,26 @@ export async function GET() {
       },
       orderBy: [{ category: 'asc' }, { name: 'asc' }]
     })
+    
+    console.log('[Templates] Found:', templates.length, 'templates')
+    console.log('[Templates] Categories:', [...new Set(templates.map(t => t.category))])
+    
+    // Spezifisches Logging für Honorar-Templates
+    const honorarTemplates = templates.filter(t => t.category === 'Honorar Beratung')
+    console.log('[Templates] Honorar Templates:', honorarTemplates.length)
+    if (honorarTemplates.length > 0) {
+      console.log('[Templates] Honorar Template Names:', honorarTemplates.map(t => t.name))
+    } else {
+      console.warn('[Templates] ⚠️ Keine Honorar-Templates gefunden!')
+      // Prüfe ob Templates mit anderen Kategorien existieren
+      const allCategories = [...new Set(templates.map(t => t.category))]
+      console.log('[Templates] Verfügbare Kategorien:', allCategories)
+    }
+    
     return NextResponse.json(templates)
   } catch (err: any) {
     console.error('❌ Templates GET Error:', err)
+    console.error('❌ Error Stack:', err.stack)
     return NextResponse.json({ message: 'Interner Fehler' }, { status: 500 })
   }
 }

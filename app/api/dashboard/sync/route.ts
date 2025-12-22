@@ -48,28 +48,12 @@ export async function POST(req: NextRequest) {
 
       const syncService = new CalendlySyncService(calendlyApiToken)
       
-      // Führe Sync aus mit Timeout-Handling
+      // Führe Sync aus (ohne Timeout - darf länger dauern)
       let syncedCount
       try {
-        // Setze Timeout für lange Sync-Operationen (Netlify hat 10s Timeout für Edge Functions, 26s für Background Functions)
-        // Verwende Promise.race um Timeout zu implementieren
-        const syncPromise = syncService.syncCalendlyEvents(daysBack, daysForward)
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Sync-Timeout: Die Synchronisation dauert zu lange. Bitte versuchen Sie es mit einem kürzeren Zeitraum.')), 20000) // 20 Sekunden
-        )
-        
-        syncedCount = await Promise.race([syncPromise, timeoutPromise]) as number
+        syncedCount = await syncService.syncCalendlyEvents(daysBack, daysForward)
       } catch (syncError: any) {
         console.error('[Sync] Fehler beim Calendly Sync:', syncError)
-        
-        // Prüfe ob es ein Timeout-Fehler ist
-        if (syncError.message?.includes('Timeout')) {
-          return NextResponse.json({ 
-            error: syncError.message,
-            note: 'Die Synchronisation wurde wegen Timeout abgebrochen. Bitte versuchen Sie es mit einem kürzeren Zeitraum (z.B. 3 Monate statt 6).'
-          }, { status: 504 })
-        }
-        
         return NextResponse.json({ 
           error: syncError.message || 'Fehler beim Synchronisieren',
           note: 'Bitte prüfen Sie die Logs für Details'
@@ -100,12 +84,15 @@ export async function POST(req: NextRequest) {
 
       const syncService = new CallsSyncService(closeApiKey)
       
-      // Führe Sync aus
+      // Führe Sync aus (ohne Timeout - darf länger dauern)
       let syncResult
       try {
+        console.log(`[Sync] Starte Calls Sync (kann länger dauern)...`)
         syncResult = await syncService.syncCalls(daysBack)
+        console.log(`[Sync] Calls Sync abgeschlossen: ${syncResult.synced} neu, ${syncResult.skipped} aktualisiert`)
       } catch (syncError: any) {
         console.error('[Sync] Fehler beim Calls Sync:', syncError)
+        console.error('[Sync] Error Stack:', syncError.stack)
         return NextResponse.json({ 
           error: syncError.message || 'Fehler beim Synchronisieren',
           note: 'Bitte prüfen Sie die Logs für Details'
