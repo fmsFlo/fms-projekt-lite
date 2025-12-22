@@ -36,7 +36,13 @@ export async function GET(_req: Request, { params }: Params) {
 export async function PATCH(req: Request, { params }: Params) {
   try {
     const body = await req.json()
-    console.log('📝 Update Request:', body)
+    console.log('📝 Update Request:', JSON.stringify(body, null, 2))
+    
+    // Prüfe ob Client existiert
+    const existingClient = await prisma.client.findUnique({ where: { id: params.id } })
+    if (!existingClient) {
+      return NextResponse.json({ message: 'Client nicht gefunden' }, { status: 404 })
+    }
     
     const validated = clientSchema.parse(body)
     // Konvertiere leere Strings zu null für Prisma
