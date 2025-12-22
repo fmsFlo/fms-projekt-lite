@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 const clientSchema = z.object({
-  firstName: z.string().min(1, 'Vorname erforderlich').optional(),
+  firstName: z.string().min(1, 'Vorname erforderlich').optional().or(z.literal('')).transform(v => v || undefined),
   lastName: z.string().optional().or(z.literal('')).transform(v => v || undefined),
   email: z.string().email('Ungültige E-Mail').optional().or(z.literal('').or(z.null())).transform(v => v || undefined),
   phone: z.string().optional().or(z.literal('').or(z.null())).transform(v => v || undefined),
