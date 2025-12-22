@@ -48,12 +48,28 @@ export async function POST(req: NextRequest) {
 
       const syncService = new CalendlySyncService(calendlyApiToken)
       
-      // Führe Sync aus
+      // Führe Sync aus mit Timeout-Handling
       let syncedCount
       try {
-        syncedCount = await syncService.syncCalendlyEvents(daysBack, daysForward)
+        // Setze Timeout für lange Sync-Operationen (Netlify hat 10s Timeout für Edge Functions, 26s für Background Functions)
+        // Verwende Promise.race um Timeout zu implementieren
+        const syncPromise = syncService.syncCalendlyEvents(daysBack, daysForward)
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Sync-Timeout: Die Synchronisation dauert zu lange. Bitte versuchen Sie es mit einem kürzeren Zeitraum.')), 20000) // 20 Sekunden
+        )
+        
+        syncedCount = await Promise.race([syncPromise, timeoutPromise]) as number
       } catch (syncError: any) {
-        console.error('[Sync] Fehler beim Sync:', syncError)
+        console.error('[Sync] Fehler beim Calendly Sync:', syncError)
+        
+        // Prüfe ob es ein Timeout-Fehler ist
+        if (syncError.message?.includes('Timeout')) {
+          return NextResponse.json({ 
+            error: syncError.message,
+            note: 'Die Synchronisation wurde wegen Timeout abgebrochen. Bitte versuchen Sie es mit einem kürzeren Zeitraum (z.B. 3 Monate statt 6).'
+          }, { status: 504 })
+        }
+        
         return NextResponse.json({ 
           error: syncError.message || 'Fehler beim Synchronisieren',
           note: 'Bitte prüfen Sie die Logs für Details'

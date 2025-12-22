@@ -65,42 +65,67 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
 
   // Für Netlify: Verwende puppeteer-core mit @sparticuz/chromium
   // Für lokale Entwicklung: Normales puppeteer
-  let browser
-  const isNetlify = process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME
+  let browser: any
+  
+  // Verbesserte Netlify-Erkennung
+  const isNetlify = !!(
+    process.env.NETLIFY || 
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.NETLIFY_DEV ||
+    process.env.VERCEL ||
+    process.env.AWS_EXECUTION_ENV
+  )
   
   if (isNetlify) {
     // Netlify/Lambda Umgebung - verwende @sparticuz/chromium
     try {
+      console.log('[PDF] Netlify-Umgebung erkannt, verwende @sparticuz/chromium')
+      
       // Dynamische Imports für Netlify (ES Modules)
       const chromium = await import('@sparticuz/chromium')
       const puppeteerCore = await import('puppeteer-core')
       
-      // Chromium für Netlify konfigurieren (wenn verfügbar)
+      // Chromium für Netlify konfigurieren
       if (chromium.setGraphicsMode && typeof chromium.setGraphicsMode === 'function') {
         chromium.setGraphicsMode(false)
       }
       
       // executablePath kann eine Property oder eine Funktion sein, je nach Version
-      let executablePath: string
+      let executablePath: string | undefined
       if (typeof chromium.executablePath === 'function') {
         executablePath = await chromium.executablePath()
-      } else {
+      } else if (chromium.executablePath) {
         executablePath = chromium.executablePath as string
       }
       
+      console.log('[PDF] Chromium executablePath:', executablePath ? 'gefunden' : 'nicht gefunden')
+      
+      if (!executablePath) {
+        throw new Error('Chromium executablePath konnte nicht ermittelt werden. Bitte stellen Sie sicher, dass @sparticuz/chromium korrekt installiert ist.')
+      }
+      
       browser = await puppeteerCore.default.launch({
-        args: chromium.args,
-        defaultViewport: chromium.defaultViewport,
+        args: chromium.args || [],
+        defaultViewport: chromium.defaultViewport || { width: 1920, height: 1080 },
         executablePath: executablePath,
-        headless: chromium.headless,
+        headless: chromium.headless ?? true,
       })
+      
+      console.log('[PDF] Browser erfolgreich gestartet')
     } catch (error: any) {
       console.error('❌ Fehler beim Laden von @sparticuz/chromium:', error.message)
       console.error('❌ Error Stack:', error.stack)
-      throw new Error(`PDF-Generierung fehlgeschlagen: ${error.message}. Bitte prüfen Sie die Netlify-Konfiguration.`)
+      console.error('❌ Environment:', {
+        NETLIFY: process.env.NETLIFY,
+        AWS_LAMBDA: process.env.AWS_LAMBDA_FUNCTION_NAME,
+        NETLIFY_DEV: process.env.NETLIFY_DEV,
+        VERCEL: process.env.VERCEL
+      })
+      throw new Error(`PDF-Generierung fehlgeschlagen: An \`executablePath\` or \`channel\` must be specified for \`puppeteer-core\`. Bitte prüfen Sie die Netlify-Konfiguration.`)
     }
   } else {
     // Lokale Entwicklung - normales puppeteer
+    console.log('[PDF] Lokale Umgebung, verwende puppeteer')
     browser = await puppeteer.launch({
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     })

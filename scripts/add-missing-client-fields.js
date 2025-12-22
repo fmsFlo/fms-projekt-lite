@@ -49,6 +49,49 @@ async function addMissingFields(tableName, fields) {
   }
 }
 
+async function addUserCloseUserIdColumn() {
+  try {
+    // Prüfe ob closeUserId Spalte existiert (mit Anführungszeichen für camelCase)
+    const result = await prisma.$queryRawUnsafe(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+      AND table_name = 'User'
+      AND column_name = 'closeUserId'
+    `)
+    
+    if (result && result.length > 0) {
+      console.log('✅ Spalte User.closeUserId existiert bereits')
+      return
+    }
+
+    console.log('🔧 Füge Spalte closeUserId zur User Tabelle hinzu...')
+    
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "User"
+      ADD COLUMN IF NOT EXISTS "closeUserId" TEXT
+    `)
+    
+    // Füge UNIQUE Constraint hinzu (separat, da IF NOT EXISTS bei Constraints nicht funktioniert)
+    try {
+      await prisma.$executeRawUnsafe(`
+        CREATE UNIQUE INDEX IF NOT EXISTS "User_closeUserId_key" ON "User"("closeUserId")
+        WHERE "closeUserId" IS NOT NULL
+      `)
+    } catch (error) {
+      // Ignoriere Fehler wenn Index bereits existiert
+      if (!error.message?.includes('already exists') && !error.message?.includes('duplicate')) {
+        console.warn('⚠️  Konnte UNIQUE Index für closeUserId nicht erstellen:', error.message)
+      }
+    }
+    
+    console.log('✅ Spalte User.closeUserId hinzugefügt')
+  } catch (error) {
+    console.error('❌ Fehler beim Hinzufügen von User.closeUserId:', error.message)
+    // Nicht beenden, sondern weiter mit anderen Tabellen
+  }
+}
+
 async function main() {
   console.log('🔧 Füge fehlende Datenbank-Felder hinzu...\n')
   
@@ -78,6 +121,9 @@ async function main() {
       { name: 'monthlyContributionBefore', type: 'DOUBLE PRECISION' },
       { name: 'monthlyContributionAfter', type: 'DOUBLE PRECISION' }
     ])
+    
+    // User closeUserId Spalte
+    await addUserCloseUserIdColumn()
     
     console.log('\n✅ Fertig!')
     
