@@ -303,6 +303,7 @@ model CalendlyEvent {
   @@index([inviteeEmail])
   @@index([startTime])
   @@index([leadId])
+  @@map("calendly_events")
   @@schema("public")
 }
 
@@ -351,6 +352,7 @@ model CustomActivity {
   @@index([activityType])
   @@index([dateCreated])
   @@index([calendlyEventId])
+  @@map("custom_activities")
   @@schema("public")
 }
 

@@ -27,54 +27,55 @@ export async function GET(req: NextRequest) {
     const params: any[] = []
     
     if (startDate) {
-      whereClause += ' AND DATE(ce.start_time) >= ?'
+      whereClause += ' AND DATE(ce."startTime") >= ?'
       params.push(startDate)
     }
     
     if (endDate) {
-      whereClause += ' AND DATE(ce.start_time) <= ?'
+      whereClause += ' AND DATE(ce."startTime") <= ?'
       params.push(endDate)
     }
     
     if (userId) {
-      whereClause += ' AND ce.user_id = ?'
+      whereClause += ' AND ce."userId" = ?'
       params.push(userId)
     }
     
     // Finde die neueste Activity pro Lead+Type und join nur diese
+    // Prisma verwendet PascalCase für Spaltennamen, snake_case für Tabellennamen (dank @@map)
     let query = `
       SELECT 
         ce.id as event_id,
         ce.id,
-        ce.event_type_name as event_name,
-        ce.start_time,
-        ce.user_id,
-        COALESCE(u.name, ce.host_name) as host_name,
-        ce.invitee_name,
-        ce.invitee_email,
+        ce."eventTypeName" as event_name,
+        ce."startTime" as start_time,
+        ce."userId" as user_id,
+        COALESCE(u.name, ce."hostName") as host_name,
+        ce."inviteeName" as invitee_name,
+        ce."inviteeEmail" as invitee_email,
         ce.status as calendly_status,
-        ca.activity_type,
-        ca.result_value as actual_result,
-        ca.date_created as activity_date,
-        ca.match_confidence,
-        ca.lead_email,
-        ca.user_name
+        ca."activityType" as activity_type,
+        ca."resultValue" as actual_result,
+        ca."dateCreated" as activity_date,
+        ca."matchConfidence" as match_confidence,
+        ca."leadEmail" as lead_email,
+        ca."userName" as user_name
       FROM calendly_events ce
-      INNER JOIN custom_activities ca ON ca.calendly_event_id = ce.id
-      LEFT JOIN users u ON ce.user_id = u.id
+      INNER JOIN custom_activities ca ON ca."calendlyEventId" = ce.id
+      LEFT JOIN "User" u ON ce."userId" = u.id
       INNER JOIN (
         SELECT 
-          lead_id,
-          activity_type,
-          MAX(date_created) as max_date
+          "leadId" as lead_id,
+          "activityType" as activity_type,
+          MAX("dateCreated") as max_date
         FROM custom_activities
-        WHERE calendly_event_id IS NOT NULL
-        GROUP BY lead_id, activity_type
-      ) latest ON ca.lead_id = latest.lead_id 
-        AND ca.activity_type = latest.activity_type 
-        AND ca.date_created = latest.max_date
+        WHERE "calendlyEventId" IS NOT NULL
+        GROUP BY "leadId", "activityType"
+      ) latest ON ca."leadId" = latest.lead_id 
+        AND ca."activityType" = latest.activity_type 
+        AND ca."dateCreated" = latest.max_date
       ${whereClause}
-      ORDER BY ce.start_time DESC
+      ORDER BY ce."startTime" DESC
       LIMIT 1000
     `
     

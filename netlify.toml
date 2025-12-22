@@ -1,5 +1,5 @@
 [build]
-  command = "DATABASE_URL=$NETLIFY_DATABASE_URL_UNPOOLED npx prisma generate && (DATABASE_URL=$NETLIFY_DATABASE_URL_UNPOOLED node scripts/add-missing-client-fields.js || echo '⚠️ Script fehlgeschlagen, aber Build läuft weiter...') && npm run build"
+  command = "DATABASE_URL=$NETLIFY_DATABASE_URL_UNPOOLED npx prisma generate && (DATABASE_URL=$NETLIFY_DATABASE_URL_UNPOOLED node scripts/add-missing-client-fields.js || echo '⚠️ Client-Felder Script fehlgeschlagen') && (DATABASE_URL=$NETLIFY_DATABASE_URL_UNPOOLED node scripts/add-sales-dashboard-tables.js || echo '⚠️ Sales-Dashboard Tabellen Script fehlgeschlagen') && npm run build"
   publish = ".next"
 
 [build.environment]

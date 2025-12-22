@@ -29,66 +29,66 @@ export async function GET(req: NextRequest) {
     // WICHTIG: Wenn userId angegeben, finde alle User mit demselben Namen (für Florian Hörning Problem)
     let userIdsToQuery: string[] = []
     if (userId) {
-      const user = await dbGet('SELECT name FROM users WHERE id = ?', [userId])
+      const user = await dbGet('SELECT name FROM "User" WHERE id = ?', [userId])
       if (user?.name) {
         // Finde alle User mit demselben Namen
-        const usersWithSameName = await dbAll('SELECT id FROM users WHERE name = ?', [user.name])
+        const usersWithSameName = await dbAll('SELECT id FROM "User" WHERE name = ?', [user.name])
         userIdsToQuery = usersWithSameName.map((u: any) => String(u.id))
       } else {
         userIdsToQuery = [userId]
       }
     }
     
-    let calendlyWhereClause = 'WHERE DATE(ce.start_time) BETWEEN ? AND ? AND ce.status = ?'
+    let calendlyWhereClause = 'WHERE DATE(ce."startTime") BETWEEN ? AND ? AND ce.status = ?'
     const calendlyParams: any[] = [startDate, endDate, 'active']
     
     if (userId && userIdsToQuery.length > 0) {
       const placeholders = userIdsToQuery.map(() => '?').join(',')
-      calendlyWhereClause += ` AND ce.user_id IN (${placeholders})`
+      calendlyWhereClause += ` AND ce."userId" IN (${placeholders})`
       calendlyParams.push(...userIdsToQuery)
     }
     
     const calendlyEvents = await dbAll(`
       SELECT 
-        ce.user_id,
+        ce."userId" as user_id,
         u.name as host_name,
-        ce.event_type_name as event_name,
+        ce."eventTypeName" as event_name,
         COUNT(*) as planned_appointments
       FROM calendly_events ce
-      LEFT JOIN users u ON ce.user_id = u.id
+      LEFT JOIN "User" u ON ce."userId" = u.id
       ${calendlyWhereClause}
-      GROUP BY ce.user_id, u.name, ce.event_type_name
+      GROUP BY ce."userId", u.name, ce."eventTypeName"
     `, calendlyParams)
 
     // 2. Hole Calendly Events im Zeitraum für Activities-Matching
     let calendlyEventsForActivities: any[] = []
     if (!userId) {
       calendlyEventsForActivities = await dbAll(`
-        SELECT id, user_id, start_time
+        SELECT id, "userId" as user_id, "startTime" as start_time
         FROM calendly_events
-        WHERE DATE(start_time) BETWEEN ? AND ? AND status = 'active'
+        WHERE DATE("startTime") BETWEEN ? AND ? AND status = 'active'
       `, [startDate, endDate])
     } else {
       // Verwende userIdsToQuery wenn vorhanden (für mehrere User mit gleichem Namen)
       const userIds = userIdsToQuery.length > 0 ? userIdsToQuery : [userId]
       const placeholders = userIds.map(() => '?').join(',')
       calendlyEventsForActivities = await dbAll(`
-        SELECT id, user_id, start_time
+        SELECT id, "userId" as user_id, "startTime" as start_time
         FROM calendly_events
-        WHERE DATE(start_time) BETWEEN ? AND ? AND status = 'active' AND user_id IN (${placeholders})
+        WHERE DATE("startTime") BETWEEN ? AND ? AND status = 'active' AND "userId" IN (${placeholders})
       `, [startDate, endDate, ...userIds])
     }
     
     const calendlyEventIds = calendlyEventsForActivities.map(e => e.id)
     
     // 3. Hole ALLE Custom Activities im Zeitraum (nicht nur gematched)
-    let activitiesWhereClause = 'WHERE DATE(date_created) BETWEEN ? AND ?'
+    let activitiesWhereClause = 'WHERE DATE("dateCreated") BETWEEN ? AND ?'
     const activitiesParams: any[] = [startDate, endDate]
     
     if (userId) {
-      const user = await dbGet('SELECT close_user_id FROM users WHERE id = ?', [userId])
+      const user = await dbGet('SELECT close_user_id FROM "User" WHERE id = ?', [userId])
       if (user?.close_user_id) {
-        activitiesWhereClause += ' AND user_id = ?'
+        activitiesWhereClause += ' AND "userId" = ?'
         activitiesParams.push(user.close_user_id)
       } else {
         activitiesWhereClause += ' AND 1=0'
@@ -99,23 +99,23 @@ export async function GET(req: NextRequest) {
     // Verwende ROW_NUMBER() um Duplikate zu vermeiden
     const dbActivities = await dbAll(`
       SELECT 
-        user_id as close_user_id,
-        activity_type,
-        result_value as ergebnis,
-        date_created,
-        lead_id,
-        close_activity_id,
-        calendly_event_id
+        "userId" as close_user_id,
+        "activityType" as activity_type,
+        "resultValue" as ergebnis,
+        "dateCreated" as date_created,
+        "leadId" as lead_id,
+        "closeActivityId" as close_activity_id,
+        "calendlyEventId" as calendly_event_id
       FROM (
         SELECT 
-          user_id,
-          activity_type,
-          result_value,
-          date_created,
-          lead_id,
-          close_activity_id,
-          calendly_event_id,
-          ROW_NUMBER() OVER (PARTITION BY lead_id, activity_type ORDER BY date_created DESC) as rn
+          "userId",
+          "activityType",
+          "resultValue",
+          "dateCreated",
+          "leadId",
+          "closeActivityId",
+          "calendlyEventId",
+          ROW_NUMBER() OVER (PARTITION BY "leadId", "activityType" ORDER BY "dateCreated" DESC) as rn
         FROM custom_activities
         ${activitiesWhereClause}
       ) ranked
@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
     // 4. Hole User-Mapping
     const users = await dbAll(`
       SELECT id, close_user_id, name
-      FROM users
+      FROM "User"
       WHERE close_user_id IS NOT NULL
     `)
 

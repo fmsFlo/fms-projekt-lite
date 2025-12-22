@@ -4,7 +4,7 @@ export const revalidate = 0
 
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { dbAll } from "@/lib/dashboard-db";
 
 export async function GET(req: NextRequest) {
   try {
@@ -40,29 +40,29 @@ export async function GET(req: NextRequest) {
     const params: any[] = [];
 
     if (startDate) {
-      where += " AND ce.start_time >= ?";
+      where += " AND ce.\"startTime\" >= ?";
       params.push(startDate);
     }
 
     if (endDate) {
-      where += " AND ce.start_time <= ?";
+      where += " AND ce.\"startTime\" <= ?";
       params.push(endDate);
     }
 
     if (userId) {
-      where += " AND ce.user_id = ?";
+      where += " AND ce.\"userId\" = ?";
       params.push(userId);
     }
 
-    // Base query
+    // Base query - Prisma verwendet PascalCase für Spaltennamen, snake_case für Tabellennamen (dank @@map)
     let query = `
       SELECT 
         ce.*,
-        COALESCE(u.name, ce.host_name) AS host_name
+        COALESCE(u.name, ce."hostName") AS host_name
       FROM calendly_events ce
-      LEFT JOIN users u ON ce.user_id = u.id
+      LEFT JOIN "User" u ON ce."userId" = u.id
       ${where}
-      ORDER BY ce.start_time ASC
+      ORDER BY ce."startTime" ASC
     `;
 
     // Apply LIMIT + OFFSET only if limit is provided
