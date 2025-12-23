@@ -14,6 +14,20 @@
   node_bundler = "esbuild"
   external_node_modules = ["@prisma/client", ".prisma/client", "@neondatabase/serverless", "bcryptjs", "@sparticuz/chromium", "puppeteer-core"]
 
+# Erhöhe Timeout für Sync-Funktionen (in Sekunden)
+# Standard ist 10 Sekunden, erhöht auf 5 Minuten (300 Sekunden) für Sync-Operationen
+[[functions]]
+  path = "/api/dashboard/sync"
+  timeout = 300
+
+[[functions]]
+  path = "/api/dashboard/calendly/sync"
+  timeout = 300
+
+[[functions]]
+  path = "/api/dashboard/custom-activities/sync"
+  timeout = 300
+
 [[headers]]
   for = "/*"
   [headers.values]

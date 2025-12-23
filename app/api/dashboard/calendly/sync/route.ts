@@ -6,6 +6,9 @@ import { prisma } from '@/lib/prisma'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+// Erhöhe Timeout für lange Sync-Operationen
+export const maxDuration = 300 // 5 Minuten
+
 export async function POST(req: NextRequest) {
   try {
     // Prüfe Session

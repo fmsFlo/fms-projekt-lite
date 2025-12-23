@@ -23,73 +23,75 @@ export async function GET(req: NextRequest) {
     const userId = searchParams.get('userId')
     
     // Forecast: Zukünftige Calendly Events
+    // Prisma verwendet PascalCase für Spaltennamen
     const forecastEnd = forecastEndDate || endDate || null
-    let forecastWhereClause = "WHERE ce.start_time >= datetime('now') AND ce.status = 'active'"
+    let forecastWhereClause = "WHERE ce.\"startTime\" >= NOW() AND ce.status = 'active'"
     const forecastParams: any[] = []
     
     if (forecastEnd) {
-      forecastWhereClause += ' AND ce.start_time <= ?'
+      forecastWhereClause += ' AND ce."startTime" <= ?'
       forecastParams.push(forecastEnd)
     }
     if (userId) {
-      forecastWhereClause += ' AND ce.user_id = ?'
-      forecastParams.push(parseInt(userId))
+      forecastWhereClause += ' AND ce."userId" = ?'
+      forecastParams.push(userId)
     }
     
     const forecastQuery = `
       SELECT 
         ce.*,
-        COALESCE(u.name, ce.host_name) as host_name,
-        l.close_lead_id,
+        COALESCE(u.name, ce."hostName") as host_name,
+        l."crmId" as close_lead_id,
         l.id as lead_db_id,
-        o.value as opportunity_value,
-        ce.event_type_name as event_name
+        o."estimatedValue" as opportunity_value,
+        ce."eventTypeName" as event_name
       FROM calendly_events ce
-      LEFT JOIN users u ON ce.user_id = u.id
-      LEFT JOIN leads l ON ce.lead_id = l.id
-      LEFT JOIN opportunities o ON o.lead_id = l.id AND o.status = 'open'
+      LEFT JOIN "User" u ON ce."userId" = u.id
+      LEFT JOIN "Lead" l ON ce."leadId" = l.id
+      LEFT JOIN "Opportunity" o ON o."leadId" = l.id AND o."phaseId" IS NOT NULL
       ${forecastWhereClause}
-      ORDER BY ce.start_time ASC
+      ORDER BY ce."startTime" ASC
     `
     
     const forecastEvents = await dbAll(forecastQuery, forecastParams)
     
     // Backcast: Vergangene Calendly Events mit Custom Activities
-    let backcastWhereClause = "WHERE ce.start_time < datetime('now')"
+    // Prisma verwendet PascalCase für Spaltennamen
+    let backcastWhereClause = "WHERE ce.\"startTime\" < NOW()"
     const backcastParams: any[] = []
     
     if (startDate) {
-      backcastWhereClause += ' AND ce.start_time >= ?'
+      backcastWhereClause += ' AND ce."startTime" >= ?'
       backcastParams.push(startDate)
     }
     if (endDate) {
-      backcastWhereClause += ' AND ce.start_time <= ?'
+      backcastWhereClause += ' AND ce."startTime" <= ?'
       backcastParams.push(endDate)
     }
     if (userId) {
-      backcastWhereClause += ' AND ce.user_id = ?'
-      backcastParams.push(parseInt(userId))
+      backcastWhereClause += ' AND ce."userId" = ?'
+      backcastParams.push(userId)
     }
     
     const backcastQuery = `
       SELECT 
         ce.*,
-        COALESCE(u.name, ce.host_name) as host_name,
-        l.close_lead_id,
+        COALESCE(u.name, ce."hostName") as host_name,
+        l."crmId" as close_lead_id,
         l.id as lead_db_id,
-        ca.result_value as ergebnis,
-        ca.activity_type,
-        ca.date_created as activity_date
+        ca."resultValue" as ergebnis,
+        ca."activityType" as activity_type,
+        ca."dateCreated" as activity_date
       FROM calendly_events ce
-      LEFT JOIN users u ON ce.user_id = u.id
-      LEFT JOIN leads l ON ce.lead_id = l.id
+      LEFT JOIN "User" u ON ce."userId" = u.id
+      LEFT JOIN "Lead" l ON ce."leadId" = l.id
       LEFT JOIN custom_activities ca ON (
-        (ca.lead_id = l.close_lead_id OR ca.lead_id = CAST(l.id AS TEXT))
-        AND ca.date_created >= datetime(ce.start_time, '-3 days')
-        AND ca.date_created <= datetime(ce.start_time, '+3 days')
+        (ca."leadId" = l."crmId" OR ca."leadId" = l.id)
+        AND ca."dateCreated" >= ce."startTime" - INTERVAL '3 days'
+        AND ca."dateCreated" <= ce."startTime" + INTERVAL '3 days'
       )
       ${backcastWhereClause}
-      ORDER BY ce.start_time DESC
+      ORDER BY ce."startTime" DESC
     `
     
     const backcastEvents = await dbAll(backcastQuery, backcastParams)

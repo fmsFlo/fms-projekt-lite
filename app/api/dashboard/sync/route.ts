@@ -2,9 +2,17 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { CalendlySyncService } from '@/lib/calendly-sync'
+import { OptimizedCalendlySyncService } from '@/lib/calendly-sync-optimized'
 import { CallsSyncService } from '@/lib/calls-sync'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+// Erhöhe Timeout für lange Sync-Operationen
+// Vercel: maxDuration in Sekunden (max 300 = 5 Minuten für Hobby, 900 = 15 Minuten für Pro)
+// Netlify: Wird über netlify.toml konfiguriert
+// WICHTIG: Für Edge Functions max 25 Sekunden, daher verwenden wir optimierte Version
+export const maxDuration = 25 // 25 Sekunden für Edge Functions (kann auf 300 erhöht werden für Serverless)
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,12 +54,19 @@ export async function POST(req: NextRequest) {
 
       console.log(`[Sync] Starte Calendly Sync für ${daysBack} Tage zurück, ${daysForward} Tage voraus...`)
 
-      const syncService = new CalendlySyncService(calendlyApiToken)
+      // Verwende optimierte Version mit Batch-Processing und Timeout-Handling
+      // Max 25 Sekunden für Edge Functions, Batch-Size 50 Events
+      const maxDurationMs = 25000 // 25 Sekunden
+      const batchSize = 50 // Events pro Batch
       
-      // Führe Sync aus (ohne Timeout - darf länger dauern)
-      let syncedCount
+      const syncService = new OptimizedCalendlySyncService(calendlyApiToken, maxDurationMs, batchSize)
+      
+      // Führe Sync aus mit Progress-Tracking
+      let syncResult
       try {
-        syncedCount = await syncService.syncCalendlyEvents(daysBack, daysForward)
+        syncResult = await syncService.syncCalendlyEvents(daysBack, daysForward, (progress) => {
+          console.log(`[Sync] Progress: ${progress.current}/${progress.total} (Batch ${progress.batch}/${progress.totalBatches})`)
+        })
       } catch (syncError: any) {
         console.error('[Sync] Fehler beim Calendly Sync:', syncError)
         return NextResponse.json({ 
@@ -60,10 +75,23 @@ export async function POST(req: NextRequest) {
         }, { status: 500 })
       }
 
+      // Wenn Partial Sync, gib Warnung zurück
+      if (syncResult.partial) {
+        return NextResponse.json({ 
+          success: true,
+          partial: true,
+          message: syncResult.message,
+          syncedCount: syncResult.synced,
+          total: syncResult.total,
+          note: 'Sync wurde wegen Timeout abgebrochen. Bitte mit kleinerem Zeitraum wiederholen oder in mehreren Schritten synchronisieren.'
+        }, { status: 206 }) // 206 Partial Content
+      }
+
       return NextResponse.json({ 
         success: true, 
-        message: `✅ ${syncedCount} Calendly Events synchronisiert!`,
-        syncedCount
+        message: syncResult.message,
+        syncedCount: syncResult.synced,
+        total: syncResult.total
       })
     }
 

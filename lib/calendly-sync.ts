@@ -223,6 +223,9 @@ class CalendlyService {
   }
 }
 
+// Exportiere auch CalendlyService für optimierte Version
+export { CalendlyService }
+
 export class CalendlySyncService {
   private calendly: CalendlyService
 

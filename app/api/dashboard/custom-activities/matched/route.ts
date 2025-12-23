@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     
     // WICHTIG: Nur eine Activity pro Lead und Activity-Type zählen (neueste)
     // Verwende Subquery um die neueste Activity pro Lead+Type zu finden
-    let whereClause = 'WHERE ca.calendly_event_id IS NOT NULL'
+    let whereClause = 'WHERE ca."calendlyEventId" IS NOT NULL'
     const params: any[] = []
     
     if (startDate) {

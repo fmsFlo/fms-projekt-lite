@@ -7,6 +7,8 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Erhöhe Timeout für API Routes (für Vercel)
+  // Wird auch in den einzelnen Route-Dateien mit export const maxDuration = 300 gesetzt
   // ... rest deiner Config
 }
 

@@ -24,14 +24,15 @@ export async function GET(req: NextRequest) {
     
     // WICHTIG: Nur eine Activity pro Lead und Activity-Type zählen (neueste)
     // Verwende Subquery mit ROW_NUMBER() um Duplikate zu vermeiden
+    // Prisma verwendet PascalCase für Spaltennamen
     let baseQuery = `
       SELECT 
-        activity_type,
-        result_value,
-        lead_id,
-        calendly_event_id,
-        date_created,
-        ROW_NUMBER() OVER (PARTITION BY lead_id, activity_type ORDER BY date_created DESC) as rn
+        "activityType" as activity_type,
+        "resultValue" as result_value,
+        "leadId" as lead_id,
+        "calendlyEventId" as calendly_event_id,
+        "dateCreated" as date_created,
+        ROW_NUMBER() OVER (PARTITION BY "leadId", "activityType" ORDER BY "dateCreated" DESC) as rn
       FROM custom_activities
       WHERE 1=1
     `
@@ -39,26 +40,27 @@ export async function GET(req: NextRequest) {
     const baseParams: any[] = []
     
     if (startDate) {
-      baseQuery += ' AND DATE(date_created) >= ?'
+      baseQuery += ' AND DATE("dateCreated") >= ?'
       baseParams.push(startDate)
     }
     
     if (endDate) {
-      baseQuery += ' AND DATE(date_created) <= ?'
+      baseQuery += ' AND DATE("dateCreated") <= ?'
       baseParams.push(endDate)
     }
     
     if (userId) {
-      baseQuery += ' AND user_id = ?'
+      baseQuery += ' AND "userId" = ?'
       baseParams.push(userId)
     }
     
     if (activityType) {
-      baseQuery += ' AND activity_type = ?'
+      baseQuery += ' AND "activityType" = ?'
       baseParams.push(activityType)
     }
     
     // Nur die neueste Activity pro Lead+Type (rn = 1)
+    // Verwende calendly_event_id aus dem Subquery (bereits als Alias)
     let query = `
       SELECT 
         activity_type,
@@ -76,20 +78,21 @@ export async function GET(req: NextRequest) {
     const results = await dbAll(query, baseParams)
     
     // Hole auch User-Informationen für byAdvisor (nur eine Activity pro Lead+Type)
+    // Prisma verwendet PascalCase für Spaltennamen
     const activitiesWithUsersBaseQuery = `
       SELECT 
-        ca.activity_type,
-        ca.result_value,
-        ca.user_id as close_user_id,
-        ca.lead_id,
-        ca.date_created,
-        ROW_NUMBER() OVER (PARTITION BY ca.lead_id, ca.activity_type ORDER BY ca.date_created DESC) as rn
+        ca."activityType" as activity_type,
+        ca."resultValue" as result_value,
+        ca."userId" as close_user_id,
+        ca."leadId" as lead_id,
+        ca."dateCreated" as date_created,
+        ROW_NUMBER() OVER (PARTITION BY ca."leadId", ca."activityType" ORDER BY ca."dateCreated" DESC) as rn
       FROM custom_activities ca
       WHERE 1=1
-      ${startDate ? ' AND DATE(ca.date_created) >= ?' : ''}
-      ${endDate ? ' AND DATE(ca.date_created) <= ?' : ''}
-      ${userId ? ' AND ca.user_id = ?' : ''}
-      ${activityType ? ' AND ca.activity_type = ?' : ''}
+      ${startDate ? ' AND DATE(ca."dateCreated") >= ?' : ''}
+      ${endDate ? ' AND DATE(ca."dateCreated") <= ?' : ''}
+      ${userId ? ' AND ca."userId" = ?' : ''}
+      ${activityType ? ' AND ca."activityType" = ?' : ''}
     `
     
     const activitiesWithUsersParams: any[] = [
@@ -109,7 +112,7 @@ export async function GET(req: NextRequest) {
       FROM (
         ${activitiesWithUsersBaseQuery}
       ) ranked
-      LEFT JOIN users u ON ranked.close_user_id = u.close_user_id
+      LEFT JOIN "User" u ON ranked.close_user_id = u."closeUserId"
       WHERE ranked.rn = 1
     `, activitiesWithUsersParams)
     

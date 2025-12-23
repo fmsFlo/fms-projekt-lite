@@ -123,10 +123,11 @@ export async function GET(req: NextRequest) {
     `, activitiesParams)
     
     // 4. Hole User-Mapping
+    // Prisma verwendet PascalCase für Spaltennamen
     const users = await dbAll(`
-      SELECT id, close_user_id, name
+      SELECT id, "closeUserId" as close_user_id, name
       FROM "User"
-      WHERE close_user_id IS NOT NULL
+      WHERE "closeUserId" IS NOT NULL
     `)
 
     // 5. Erstelle Mapping: Calendly Event ID -> User ID
