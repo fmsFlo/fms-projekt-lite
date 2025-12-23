@@ -8,11 +8,9 @@ import { CallsSyncService } from '@/lib/calls-sync'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-// Erhöhe Timeout für lange Sync-Operationen
-// Vercel: maxDuration in Sekunden (max 300 = 5 Minuten für Hobby, 900 = 15 Minuten für Pro)
-// Netlify: Wird über netlify.toml konfiguriert
-// WICHTIG: Für Edge Functions max 25 Sekunden, daher verwenden wir optimierte Version
-export const maxDuration = 25 // 25 Sekunden für Edge Functions (kann auf 300 erhöht werden für Serverless)
+// WICHTIG: Netlify Free hat 10 Sekunden API Timeout (nicht änderbar)
+// Daher: Sehr kleine Batches und früher Return
+export const maxDuration = 10 // Netlify Free Limit: 10 Sekunden
 
 export async function POST(req: NextRequest) {
   try {
@@ -54,17 +52,25 @@ export async function POST(req: NextRequest) {
 
       console.log(`[Sync] Starte Calendly Sync für ${daysBack} Tage zurück, ${daysForward} Tage voraus...`)
 
-      // Verwende optimierte Version mit Batch-Processing und Timeout-Handling
-      // Max 25 Sekunden für Edge Functions, Batch-Size 50 Events
-      const maxDurationMs = 25000 // 25 Sekunden
-      const batchSize = 50 // Events pro Batch
+      // WICHTIG: Netlify Free = 10 Sekunden Limit
+      // Verwende optimierte Version mit sehr kleinen Batches
+      const maxDurationMs = 9000 // 9 Sekunden Safety Buffer (Netlify Free: 10s)
+      const batchSize = 15 // Sehr kleine Batches für Netlify Free
+      
+      // Reduziere Zeitraum automatisch wenn zu groß
+      const adjustedDaysBack = Math.min(daysBack, 90) // Max 90 Tage für Netlify Free
+      const adjustedDaysForward = Math.min(daysForward, 30) // Max 30 Tage für Netlify Free
+      
+      if (daysBack > 90 || daysForward > 30) {
+        console.log(`[Sync] Zeitraum reduziert auf ${adjustedDaysBack} Tage zurück, ${adjustedDaysForward} Tage voraus (Netlify Free Limit)`)
+      }
       
       const syncService = new OptimizedCalendlySyncService(calendlyApiToken, maxDurationMs, batchSize)
       
       // Führe Sync aus mit Progress-Tracking
       let syncResult
       try {
-        syncResult = await syncService.syncCalendlyEvents(daysBack, daysForward, (progress) => {
+        syncResult = await syncService.syncCalendlyEvents(adjustedDaysBack, adjustedDaysForward, (progress) => {
           console.log(`[Sync] Progress: ${progress.current}/${progress.total} (Batch ${progress.batch}/${progress.totalBatches})`)
         })
       } catch (syncError: any) {

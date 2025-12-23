@@ -7,7 +7,8 @@ export class OptimizedCalendlySyncService {
   private maxDuration: number // Max Dauer in Millisekunden
   private batchSize: number // Events pro Batch
 
-  constructor(apiToken?: string, maxDurationMs = 25000, batchSize = 50) {
+  constructor(apiToken?: string, maxDurationMs = 9000, batchSize = 15) {
+    // Netlify Free: 10 Sekunden Limit, daher Default: 9 Sekunden Safety Buffer, Batch-Size 15
     this.calendly = new CalendlyService(apiToken)
     this.maxDuration = maxDurationMs
     this.batchSize = batchSize
