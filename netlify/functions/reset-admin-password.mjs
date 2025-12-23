@@ -47,8 +47,15 @@ export async function handler(event, context) {
       }
     }
 
-    // Connect to database
-    const sql = neon(process.env.DATABASE_URL || process.env.NETLIFY_DATABASE_URL)
+    // Connect to database (nur process.env.DATABASE_URL - keine Fallbacks)
+    if (!process.env.DATABASE_URL) {
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ error: 'DATABASE_URL environment variable is not set' }),
+      }
+    }
+    const sql = neon(process.env.DATABASE_URL)
 
     // Find user
     const users = await sql`

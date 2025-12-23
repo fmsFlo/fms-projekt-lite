@@ -24,17 +24,13 @@ export async function POST(req: Request) {
     const body = await req.json()
     const input = schema.parse(body)
 
-    // Validate DATABASE_URL
-    const databaseUrl = process.env.DATABASE_URL || 
-                        process.env.NETLIFY_DATABASE_URL_UNPOOLED || 
-                        process.env.NETLIFY_DATABASE_URL
-    
-    if (!databaseUrl) {
-      throw new Error('DATABASE_URL environment variable is not set')
+    // Validate DATABASE_URL (nur process.env.DATABASE_URL - keine Fallbacks)
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL environment variable is not set. Please set it in Netlify UI Environment Variables.')
     }
 
     // Connect directly to database
-    const sql = neon(databaseUrl)
+    const sql = neon(process.env.DATABASE_URL)
 
     // Normalize email
     const email = input.email.trim().toLowerCase()

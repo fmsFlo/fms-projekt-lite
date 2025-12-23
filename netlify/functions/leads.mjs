@@ -80,14 +80,9 @@ export async function handler(event, context) {
     }
   }
 
-  // Validate DATABASE_URL
-  const databaseUrl = process.env.DATABASE_URL || 
-                      process.env.NETLIFY_DATABASE_URL_UNPOOLED || 
-                      process.env.NETLIFY_DATABASE_URL
-
-  if (!databaseUrl) {
+  // Validate DATABASE_URL (nur process.env.DATABASE_URL - keine Fallbacks)
+  if (!process.env.DATABASE_URL) {
     console.error('❌ DATABASE_URL is not set')
-    console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('DATABASE')))
     return {
       statusCode: 500,
       headers: {
@@ -96,14 +91,14 @@ export async function handler(event, context) {
       },
       body: JSON.stringify({ 
         error: 'Database configuration error',
-        details: 'DATABASE_URL environment variable is not set. Please check your .env.local file or Netlify environment variables.'
+        details: 'DATABASE_URL environment variable is not set. Please set it in Netlify UI Environment Variables.'
       })
     }
   }
 
   // Validate DATABASE_URL format
-  if (!databaseUrl.startsWith('postgresql://') && !databaseUrl.startsWith('postgres://')) {
-    console.error('❌ DATABASE_URL has invalid format:', databaseUrl.substring(0, 30) + '...')
+  if (!process.env.DATABASE_URL.startsWith('postgresql://') && !process.env.DATABASE_URL.startsWith('postgres://')) {
+    console.error('❌ DATABASE_URL has invalid format')
     return {
       statusCode: 500,
       headers: {
@@ -117,10 +112,10 @@ export async function handler(event, context) {
     }
   }
 
-  // Connect to Neon
+  // Connect to Neon (nur process.env.DATABASE_URL - keine Fallbacks)
   let sql
   try {
-    sql = neon(databaseUrl)
+    sql = neon(process.env.DATABASE_URL)
   } catch (neonError) {
     console.error('❌ Neon connection error:', neonError.message)
     return {

@@ -5,17 +5,17 @@ declare global {
   var prisma: PrismaClient | undefined
 }
 
-const databaseUrl = 
-  process.env.DATABASE_URL || 
-  process.env.NETLIFY_DATABASE_URL_UNPOOLED || 
-  process.env.NETLIFY_DATABASE_URL
+// Prisma Client nutzt automatisch process.env.DATABASE_URL
+// KEINE manuelle Überschreibung - Netlify UI Environment Variables werden verwendet
 
-if (!databaseUrl) {
+// Validiere dass DATABASE_URL gesetzt ist (nur für bessere Fehlermeldungen)
+if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL is not set')
-  throw new Error('DATABASE_URL must be set. For local development with Docker: DATABASE_URL=postgresql://postgres:postgres@localhost:5432/docreate_dev')
+  throw new Error('DATABASE_URL must be set. For local development: DATABASE_URL=postgresql://postgres:postgres@localhost:5432/docreate_dev')
 }
 
 // Validiere URL-Format (PostgreSQL oder SQLite)
+const databaseUrl = process.env.DATABASE_URL
 const isValidDatabaseUrl = 
   databaseUrl.startsWith('postgresql://') || 
   databaseUrl.startsWith('postgres://') ||
@@ -39,46 +39,8 @@ if (databaseUrl.startsWith('file:') && process.env.NODE_ENV === 'development') {
   console.warn('⚠️  2. Set DATABASE_URL=postgresql://postgres:postgres@localhost:5432/docreate_dev in .env.local')
 }
 
-// Optimiere Connection URL für besseres Pooling (verhindert "Connection Closed" Fehler)
-function optimizeConnectionUrl(url: string): string {
-  if (!url.startsWith('postgresql://') && !url.startsWith('postgres://')) {
-    return url
-  }
-  
-  try {
-    const urlObj = new URL(url)
-    
-    // Reduziere connection_limit für bessere Stabilität
-    if (!urlObj.searchParams.has('connection_limit')) {
-      urlObj.searchParams.set('connection_limit', '5')
-    }
-    // Erhöhe pool_timeout für mehr Toleranz
-    if (!urlObj.searchParams.has('pool_timeout')) {
-      urlObj.searchParams.set('pool_timeout', '20')
-    }
-    if (!urlObj.searchParams.has('connect_timeout')) {
-      urlObj.searchParams.set('connect_timeout', '60')
-    }
-    // Für Neon: pgbouncer mode
-    if (!urlObj.searchParams.has('pgbouncer')) {
-      urlObj.searchParams.set('pgbouncer', 'true')
-    }
-    
-    return urlObj.toString()
-  } catch {
-    // Falls URL-Parsing fehlschlägt, verwende Original-URL
-    return url
-  }
-}
-
-const optimizedDatabaseUrl = optimizeConnectionUrl(databaseUrl)
-
+// Prisma Client OHNE datasource override - nutzt automatisch process.env.DATABASE_URL
 export const prisma = global.prisma || new PrismaClient({
-  datasources: {
-    db: {
-      url: optimizedDatabaseUrl
-    }
-  },
   log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
 })
 
