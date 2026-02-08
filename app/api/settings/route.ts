@@ -58,7 +58,7 @@ const settingsSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     // Auth-Prüfung - nur Admin
-    if (!isAdmin(req)) {
+    if (!(await isAdmin(req))) {
       return NextResponse.json({ message: 'Nur für Administratoren' }, { status: 403 })
     }
 
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     // Auth-Prüfung - nur Admin
-    if (!isAdmin(req)) {
+    if (!(await isAdmin(req))) {
       return NextResponse.json({ message: 'Nur für Administratoren' }, { status: 403 })
     }
 

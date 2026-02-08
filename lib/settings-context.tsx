@@ -58,18 +58,36 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch('/api/settings', { cache: 'no-store' })
+      const res = await fetch('/api/settings', {
+        cache: 'no-store',
+        credentials: 'include'
+      })
       if (res.ok) {
         const data = await res.json()
         setSettings(data)
-        
+
         // Set CSS variables for brand colors
         const primaryColor = data.primaryColor || '#007AFF'
         const secondaryColor = data.secondaryColor || '#5856D6'
         setCSSVariables(primaryColor, secondaryColor)
+      } else if (res.status === 401 || res.status === 403) {
+        // User not authenticated or not admin - use default values
+        const defaultSettings = {
+          primaryColor: '#007AFF',
+          secondaryColor: '#5856D6'
+        }
+        setSettings(defaultSettings)
+        setCSSVariables(defaultSettings.primaryColor, defaultSettings.secondaryColor)
       }
     } catch (error) {
       console.error('Error loading settings:', error)
+      // Use default values on error
+      const defaultSettings = {
+        primaryColor: '#007AFF',
+        secondaryColor: '#5856D6'
+      }
+      setSettings(defaultSettings)
+      setCSSVariables(defaultSettings.primaryColor, defaultSettings.secondaryColor)
     } finally {
       setLoading(false)
     }
