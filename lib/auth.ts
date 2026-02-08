@@ -125,51 +125,84 @@ export async function getAuthUserFromRequest(req?: NextRequest | Request): Promi
   userId: string
   role: UserRole
   email: string
+  name: string | null
 } | null> {
   try {
     let accessToken: string | undefined
 
     if (req) {
+      // Try NextRequest cookies first
       if ('cookies' in req && typeof req.cookies.get === 'function') {
         accessToken = (req as NextRequest).cookies.get('sb-access-token')?.value
       } else {
+        // Parse cookie header manually for standard Request
         const cookieHeader = (req as Request).headers.get('cookie')
         if (cookieHeader) {
           const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
             const [key, value] = cookie.trim().split('=')
-            acc[key] = value
+            if (key && value) {
+              acc[key] = value
+            }
             return acc
           }, {} as Record<string, string>)
           accessToken = cookies['sb-access-token']
         }
       }
     } else {
+      // Server Components context
       try {
-        accessToken = cookies().get('sb-access-token')?.value
+        const cookieStore = cookies()
+        accessToken = cookieStore.get('sb-access-token')?.value
       } catch {
         return null
       }
     }
 
     if (!accessToken) {
+      console.log('❌ No access token found in cookies')
       return null
     }
 
-    const supabase = createSupabaseServerClient(accessToken)
+    // Verify token with Supabase
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      },
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      }
+    })
+
     const { data: { user }, error } = await supabase.auth.getUser()
 
-    if (error || !user) {
+    if (error) {
+      console.log('❌ Supabase auth.getUser error:', error.message)
       return null
     }
 
+    if (!user) {
+      console.log('❌ No user returned from Supabase')
+      return null
+    }
+
+    // Get app user from database
     const { data: appUser, error: dbError } = await supabase
       .from('User')
-      .select('*')
+      .select('id, email, name, role, isActive, auth_user_id')
       .eq('auth_user_id', user.id)
       .eq('isActive', true)
       .maybeSingle()
 
-    if (dbError || !appUser) {
+    if (dbError) {
+      console.log('❌ Database error fetching user:', dbError.message)
+      return null
+    }
+
+    if (!appUser) {
+      console.log('❌ No active user found in database for auth_user_id:', user.id)
       return null
     }
 
@@ -178,9 +211,10 @@ export async function getAuthUserFromRequest(req?: NextRequest | Request): Promi
       userId: appUser.id,
       role: appUser.role as UserRole,
       email: appUser.email,
+      name: appUser.name,
     }
   } catch (error: any) {
-    console.error('getAuthUserFromRequest Error:', error.message)
+    console.error('❌ getAuthUserFromRequest Error:', error.message)
     return null
   }
 }

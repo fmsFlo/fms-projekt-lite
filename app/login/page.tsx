@@ -67,6 +67,9 @@ function LoginContent() {
       console.log('🔍 Login Response OK:', response.ok);
 
       if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Login erfolgreich:', data);
+
         // Speichere Login-Daten wenn "Passwort speichern" aktiviert
         if (rememberMe) {
           try {
@@ -86,10 +89,14 @@ function LoginContent() {
             console.error('Fehler beim Löschen der Login-Daten:', err);
           }
         }
-        
+
+        // Wait a bit to ensure cookies are set before redirect
+        console.log('✅ Warte kurz, um sicherzustellen, dass Cookies gesetzt werden...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         // Success - redirect NOW!
-        console.log('✅ Login erfolgreich, weiterleiten zu /dashboard');
-        
+        console.log('✅ Weiterleiten zu /dashboard');
+
         // Use window.location.href instead of router.push to force full page reload
         window.location.href = '/dashboard';
         return; // Verhindere weitere Ausführung

@@ -57,8 +57,14 @@ const settingsSchema = z.object({
 
 export async function GET(req: NextRequest) {
   try {
+    console.log('🔍 /api/settings: GET request received')
+
     // Auth-Prüfung - nur Admin
-    if (!(await isAdmin(req))) {
+    const isAdminUser = await isAdmin(req)
+    console.log('🔍 /api/settings: Is admin:', isAdminUser)
+
+    if (!isAdminUser) {
+      console.log('❌ /api/settings: Not admin, returning 403')
       return NextResponse.json({ message: 'Nur für Administratoren' }, { status: 403 })
     }
 
@@ -66,9 +72,10 @@ export async function GET(req: NextRequest) {
     if (!settings) {
       settings = await prisma.companySettings.create({ data: {} })
     }
+    console.log('✅ /api/settings: Returning settings')
     return NextResponse.json(settings)
   } catch (err: any) {
-    console.error('Settings GET error:', err)
+    console.error('❌ Settings GET error:', err)
     return NextResponse.json({ message: 'Interner Fehler', error: err.message }, { status: 500 })
   }
 }

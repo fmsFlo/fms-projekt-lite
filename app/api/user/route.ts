@@ -8,6 +8,14 @@ export async function GET(request: Request) {
   try {
     console.log('🔍 /api/user: Request received')
 
+    // Log cookies for debugging
+    const cookieHeader = request.headers.get('cookie')
+    console.log('🔍 /api/user: Cookie header present:', !!cookieHeader)
+    if (cookieHeader) {
+      const hasSbToken = cookieHeader.includes('sb-access-token')
+      console.log('🔍 /api/user: Has sb-access-token:', hasSbToken)
+    }
+
     const authUser = await getAuthUserFromRequest(request)
 
     if (!authUser) {
@@ -19,6 +27,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       id: authUser.userId,
       email: authUser.email,
+      name: authUser.name,
       role: authUser.role,
       isActive: true,
       visibleCategories: null // Admin sieht alle Kategorien

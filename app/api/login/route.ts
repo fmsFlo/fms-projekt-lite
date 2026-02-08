@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createSupabaseClient } from '@/lib/auth'
+import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -29,17 +30,43 @@ export async function POST(request: Request) {
       }, { status: 401 })
     }
 
+    // Get user from database
+    const userClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${data.session.access_token}`
+        }
+      }
+    })
+
+    const { data: appUser } = await userClient
+      .from('User')
+      .select('id, email, name, role, isActive')
+      .eq('auth_user_id', data.user.id)
+      .eq('isActive', true)
+      .maybeSingle()
+
+    if (!appUser) {
+      return NextResponse.json({
+        error: 'User not found',
+        message: 'Kein aktiver Benutzer gefunden'
+      }, { status: 401 })
+    }
+
     const response = NextResponse.json({
       success: true,
       ok: true,
       user: {
-        id: data.user.id,
-        email: data.user.email
+        id: appUser.id,
+        email: appUser.email,
+        name: appUser.name,
+        role: appUser.role
       }
     })
 
     const sevenDays = 7 * 24 * 60 * 60
 
+    // Set cookies with proper options for production
     response.cookies.set('sb-access-token', data.session.access_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -56,7 +83,7 @@ export async function POST(request: Request) {
       maxAge: sevenDays
     })
 
-    console.log('✅ Login erfolgreich via Supabase Auth')
+    console.log('✅ Login erfolgreich via Supabase Auth for user:', appUser.email)
     return response
   } catch (err: any) {
     console.error('❌ Login Error:', err)
