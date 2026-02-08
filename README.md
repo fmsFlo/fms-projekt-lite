@@ -1,12 +1,8 @@
-# Docreate MVP
+# FMS Projekt - Lite Version für Bolt.new
 
-Produktionsnahes MVP mit Next.js (App Router), TypeScript, Tailwind, Prisma (SQLite), Handlebars und Puppeteer.
+Eine vereinfachte Version des Financial Management Systems mit Performance-Optimierungen.
 
-## Setup
-- Node 18+
-- Installieren:  (oder npm/yarn)
--  anlegen (siehe Beispiel unten) und Werte anpassen
-- Prisma Migration + Seed: Prisma schema loaded from prisma/schema.prisma
+## Quick Start mit Bolt.new
 - Starten: 
 
 ### .env.local Beispiel
