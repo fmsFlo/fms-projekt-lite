@@ -921,15 +921,17 @@ export default function RetirementConceptForm({ initialConcept, clientBirthDate,
     }
   }, [formData.monthlySavings])
 
-  // Debug: Logge formData-Änderungen
+  // Debug: Logge formData-Änderungen (nur in Entwicklung)
   useEffect(() => {
-    console.log('🔍 Form-Werte NACHHER (useEffect):', {
-      birthDate: formData.birthDate,
-      desiredRetirementAge: formData.desiredRetirementAge,
-      targetPensionNetto: formData.targetPensionNetto,
-      lifeExpectancy: formData.lifeExpectancy,
-      monthlySavings: formData.monthlySavings,
-    })
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Form-Werte NACHHER (useEffect):', {
+        birthDate: formData.birthDate,
+        desiredRetirementAge: formData.desiredRetirementAge,
+        targetPensionNetto: formData.targetPensionNetto,
+        lifeExpectancy: formData.lifeExpectancy,
+        monthlySavings: formData.monthlySavings,
+      })
+    }
   }, [formData.birthDate, formData.desiredRetirementAge, formData.targetPensionNetto, formData.lifeExpectancy, formData.monthlySavings])
 
   const [showStatutoryTooltip, setShowStatutoryTooltip] = useState(false)

@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { renderHandlebarsToHtml, htmlToPdf } from '@/lib/pdf'
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
+export const revalidate = 300 // 5 Minuten Cache für PDF-Generierung
 
 interface Params { params: { id: string } }
 

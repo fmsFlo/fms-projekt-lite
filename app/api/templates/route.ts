@@ -5,7 +5,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
+export const revalidate = 300 // 5 Minuten Cache für Templates
 
 export async function GET() {
   try {

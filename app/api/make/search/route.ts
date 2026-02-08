@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
+export const revalidate = 60 // 1 Minute Cache für Suchergebnisse
 
 const schema = z.object({ query: z.string().min(1) })
 
