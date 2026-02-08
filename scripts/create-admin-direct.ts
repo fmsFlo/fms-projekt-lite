@@ -1,7 +1,22 @@
 import { createClient } from '@supabase/supabase-js'
+import * as dotenv from 'dotenv'
+import { randomBytes } from 'crypto'
+
+dotenv.config()
+
+function generateId(): string {
+  return randomBytes(12).toString('base64url')
+}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('❌ Fehlende Umgebungsvariablen!')
+  console.error('NEXT_PUBLIC_SUPABASE_URL:', supabaseUrl ? '✓' : '✗')
+  console.error('SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? '✓' : '✗')
+  process.exit(1)
+}
 
 async function main() {
   const email = process.argv[2] || 'admin@financemadesimple.de'
@@ -56,9 +71,9 @@ async function main() {
       console.log(`✅ Supabase Auth User erstellt: ${authUserId}`)
     }
 
-    // 3. Prüfe/Erstelle User in users-Tabelle
+    // 3. Prüfe/Erstelle User in User-Tabelle
     const { data: appUser, error: userError } = await supabase
-      .from('users')
+      .from('User')
       .select('*')
       .eq('auth_user_id', authUserId)
       .maybeSingle()
@@ -71,13 +86,14 @@ async function main() {
       console.log(`📝 Erstelle User-Eintrag in Datenbank...`)
 
       const { error: insertError } = await supabase
-        .from('users')
+        .from('User')
         .insert({
+          id: generateId(),
           auth_user_id: authUserId,
           email: email.toLowerCase(),
           role: 'admin',
           name: 'Admin',
-          is_active: true,
+          isActive: true,
         })
 
       if (insertError) {
@@ -91,9 +107,9 @@ async function main() {
 
       // Stelle sicher, dass der User aktiv ist und Admin-Rechte hat
       const { error: updateError } = await supabase
-        .from('users')
+        .from('User')
         .update({
-          is_active: true,
+          isActive: true,
           role: 'admin',
         })
         .eq('auth_user_id', authUserId)

@@ -1,12 +1,12 @@
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest } from 'next/server'
-import { prisma } from './prisma'
 
 export type UserRole = 'admin' | 'advisor'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export function createSupabaseClient() {
   return createClient(supabaseUrl, supabaseAnonKey, {
@@ -54,15 +54,15 @@ export async function verifyCredentials(
       return null
     }
 
-    const user = await prisma.user.findFirst({
-      where: {
-        authUserId: data.user.id,
-        isActive: true,
-      },
-    })
+    const { data: user, error: dbError } = await supabase
+      .from('User')
+      .select('*')
+      .eq('auth_user_id', data.user.id)
+      .eq('isActive', true)
+      .maybeSingle()
 
-    if (!user) {
-      console.error('User not found in database or inactive')
+    if (dbError || !user) {
+      console.error('User not found in database or inactive:', dbError?.message)
       return null
     }
 
@@ -162,14 +162,14 @@ export async function getAuthUserFromRequest(req?: NextRequest | Request): Promi
       return null
     }
 
-    const appUser = await prisma.user.findFirst({
-      where: {
-        authUserId: user.id,
-        isActive: true,
-      },
-    })
+    const { data: appUser, error: dbError } = await supabase
+      .from('User')
+      .select('*')
+      .eq('auth_user_id', user.id)
+      .eq('isActive', true)
+      .maybeSingle()
 
-    if (!appUser) {
+    if (dbError || !appUser) {
       return null
     }
 
@@ -214,7 +214,7 @@ export async function createAuthUser(
   try {
     const supabase = createClient(
       supabaseUrl,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      supabaseServiceKey,
       {
         auth: {
           autoRefreshToken: false,
@@ -234,15 +234,22 @@ export async function createAuthUser(
       return { success: false, error: error?.message || 'Failed to create auth user' }
     }
 
-    const appUser = await prisma.user.create({
-      data: {
-        authUserId: data.user.id,
+    const { data: appUser, error: dbError } = await supabase
+      .from('User')
+      .insert({
+        auth_user_id: data.user.id,
         email: email.trim().toLowerCase(),
         role,
         name,
         isActive: true,
-      },
-    })
+      })
+      .select()
+      .single()
+
+    if (dbError || !appUser) {
+      console.error('Create App User Error:', dbError?.message)
+      return { success: false, error: dbError?.message || 'Failed to create app user' }
+    }
 
     return { success: true, userId: appUser.id }
   } catch (error: any) {
