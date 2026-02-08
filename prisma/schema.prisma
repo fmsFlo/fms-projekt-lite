@@ -513,17 +513,16 @@ model User {
   id                String    @id @default(cuid())
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+  authUserId        String?   @unique @map("auth_user_id") // Supabase Auth User ID
   email             String    @unique
-  passwordHash      String
   role              String // 'admin' oder 'advisor'
   name              String?
   isActive          Boolean   @default(true)
-  resetToken        String?
-  resetTokenExpires DateTime?
   visibleCategories String? // JSON-Array der sichtbaren Kategorien (null = alle für Admin, [] = keine Honorarverträge für Berater)
   closeUserId       String?  @unique // Close CRM user ID
   calls             Call[]
 
+  @@index([authUserId])
   @@schema("public")
 }
 

@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { hashPassword, isAdmin } from '@/lib/auth'
-import { cookies } from 'next/headers'
+import { isAdmin, createAuthUser, createSupabaseClient } from '@/lib/auth'
 import type { NextRequest } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -28,23 +27,17 @@ const updateUserSchema = z.object({
 
 export async function GET(req: NextRequest) {
   try {
-    // Prüfe Session mit getUserId/getUserRole
-    const { getUserId, getUserRole } = await import('@/lib/auth')
-    const userId = getUserId(req)
-    const role = getUserRole(req)
-    
-    if (!userId || !role) {
-      return NextResponse.json({ message: 'Nicht authentifiziert' }, { status: 401 })
-    }
-    
-    if (role !== 'admin') {
-      return NextResponse.json({ message: 'Nur Administratoren können Benutzer anzeigen' }, { status: 403 })
+    const adminCheck = await isAdmin(req)
+
+    if (!adminCheck) {
+      return NextResponse.json({ message: 'Nicht authentifiziert oder keine Berechtigung' }, { status: 403 })
     }
 
     const users = await prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
+        authUserId: true,
         email: true,
         role: true,
         name: true,
@@ -58,8 +51,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(users)
   } catch (err: any) {
     console.error('❌ Users GET Error:', err)
-    return NextResponse.json({ 
-      message: 'Interner Fehler', 
+    return NextResponse.json({
+      message: 'Interner Fehler',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     }, { status: 500 })
   }
@@ -67,23 +60,16 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { getUserId, getUserRole } = await import('@/lib/auth')
-    const userId = getUserId(req)
-    const role = getUserRole(req)
-    
-    if (!userId || !role) {
-      return NextResponse.json({ message: 'Nicht authentifiziert' }, { status: 401 })
-    }
-    
-    if (role !== 'admin') {
-      return NextResponse.json({ message: 'Nur Administratoren können Benutzer erstellen' }, { status: 403 })
+    const adminCheck = await isAdmin(req)
+
+    if (!adminCheck) {
+      return NextResponse.json({ message: 'Nicht authentifiziert oder keine Berechtigung' }, { status: 403 })
     }
 
     const body = await req.json()
     const data = createUserSchema.parse(body)
 
-    // Prüfe ob E-Mail bereits existiert
-    const existing = await prisma.user.findUnique({
+    const existing = await prisma.user.findFirst({
       where: { email: data.email.toLowerCase() }
     })
 
@@ -91,18 +77,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'E-Mail-Adresse bereits vergeben' }, { status: 400 })
     }
 
-    const passwordHash = await hashPassword(data.password)
+    const result = await createAuthUser(
+      data.email,
+      data.password,
+      data.role,
+      data.name
+    )
 
-    const user = await prisma.user.create({
-      data: {
-        email: data.email.toLowerCase(),
-        passwordHash,
-        role: data.role,
-        name: data.name || null,
-        visibleCategories: data.visibleCategories ? JSON.stringify(data.visibleCategories) : null
-      },
+    if (!result.success) {
+      return NextResponse.json({
+        message: 'Fehler beim Erstellen des Users',
+        error: result.error
+      }, { status: 500 })
+    }
+
+    if (data.visibleCategories) {
+      await prisma.user.update({
+        where: { id: result.userId },
+        data: {
+          visibleCategories: JSON.stringify(data.visibleCategories)
+        }
+      })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: result.userId },
       select: {
         id: true,
+        authUserId: true,
         email: true,
         role: true,
         name: true,
@@ -118,29 +120,31 @@ export async function POST(req: NextRequest) {
     if (err?.name === 'ZodError') {
       return NextResponse.json({ message: 'Ungültige Eingabe', issues: err.issues }, { status: 400 })
     }
-    return NextResponse.json({ 
-      message: 'Interner Fehler', 
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined 
+    return NextResponse.json({
+      message: 'Interner Fehler',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     }, { status: 500 })
   }
 }
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { getUserId, getUserRole } = await import('@/lib/auth')
-    const userId = getUserId(req)
-    const role = getUserRole(req)
-    
-    if (!userId || !role) {
-      return NextResponse.json({ message: 'Nicht authentifiziert' }, { status: 401 })
-    }
-    
-    if (role !== 'admin') {
-      return NextResponse.json({ message: 'Nur Administratoren können Benutzer bearbeiten' }, { status: 403 })
+    const adminCheck = await isAdmin(req)
+
+    if (!adminCheck) {
+      return NextResponse.json({ message: 'Nicht authentifiziert oder keine Berechtigung' }, { status: 403 })
     }
 
     const body = await req.json()
     const data = updateUserSchema.parse(body)
+
+    const existingUser = await prisma.user.findUnique({
+      where: { id: data.id }
+    })
+
+    if (!existingUser) {
+      return NextResponse.json({ message: 'User nicht gefunden' }, { status: 404 })
+    }
 
     const updateData: any = {}
     if (data.email) updateData.email = data.email.toLowerCase()
@@ -150,11 +154,7 @@ export async function PATCH(req: NextRequest) {
     if (data.visibleCategories !== undefined) {
       updateData.visibleCategories = data.visibleCategories ? JSON.stringify(data.visibleCategories) : null
     }
-    if (data.password) {
-      updateData.passwordHash = await hashPassword(data.password)
-    }
 
-    // Prüfe ob E-Mail bereits von anderem User verwendet wird
     if (data.email) {
       const existing = await prisma.user.findFirst({
         where: {
@@ -167,11 +167,71 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
+    if (data.password && existingUser.authUserId) {
+      try {
+        const supabase = createSupabaseClient()
+        const adminSupabase = createSupabaseClient()
+
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+        if (serviceKey) {
+          const { createClient } = await import('@supabase/supabase-js')
+          const adminClient = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            serviceKey,
+            {
+              auth: {
+                autoRefreshToken: false,
+                persistSession: false
+              }
+            }
+          )
+
+          await adminClient.auth.admin.updateUserById(
+            existingUser.authUserId,
+            { password: data.password.trim() }
+          )
+        }
+      } catch (error: any) {
+        console.error('Error updating password:', error)
+        return NextResponse.json({
+          message: 'Fehler beim Aktualisieren des Passworts',
+          error: error.message
+        }, { status: 500 })
+      }
+    }
+
+    if (data.email && existingUser.authUserId) {
+      try {
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+        if (serviceKey) {
+          const { createClient } = await import('@supabase/supabase-js')
+          const adminClient = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            serviceKey,
+            {
+              auth: {
+                autoRefreshToken: false,
+                persistSession: false
+              }
+            }
+          )
+
+          await adminClient.auth.admin.updateUserById(
+            existingUser.authUserId,
+            { email: data.email.toLowerCase() }
+          )
+        }
+      } catch (error: any) {
+        console.error('Error updating email:', error)
+      }
+    }
+
     const user = await prisma.user.update({
       where: { id: data.id },
       data: updateData,
       select: {
         id: true,
+        authUserId: true,
         email: true,
         role: true,
         name: true,
@@ -187,25 +247,19 @@ export async function PATCH(req: NextRequest) {
     if (err?.name === 'ZodError') {
       return NextResponse.json({ message: 'Ungültige Eingabe', issues: err.issues }, { status: 400 })
     }
-    return NextResponse.json({ 
-      message: 'Interner Fehler', 
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined 
+    return NextResponse.json({
+      message: 'Interner Fehler',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     }, { status: 500 })
   }
 }
 
 export async function DELETE(req: NextRequest) {
   try {
-    const { getUserId, getUserRole } = await import('@/lib/auth')
-    const userId = getUserId(req)
-    const role = getUserRole(req)
-    
-    if (!userId || !role) {
-      return NextResponse.json({ message: 'Nicht authentifiziert' }, { status: 401 })
-    }
-    
-    if (role !== 'admin') {
-      return NextResponse.json({ message: 'Nur Administratoren können Benutzer löschen' }, { status: 403 })
+    const adminCheck = await isAdmin(req)
+
+    if (!adminCheck) {
+      return NextResponse.json({ message: 'Nicht authentifiziert oder keine Berechtigung' }, { status: 403 })
     }
 
     const { searchParams } = new URL(req.url)
@@ -215,6 +269,37 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ message: 'ID erforderlich' }, { status: 400 })
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id }
+    })
+
+    if (!user) {
+      return NextResponse.json({ message: 'User nicht gefunden' }, { status: 404 })
+    }
+
+    if (user.authUserId) {
+      try {
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+        if (serviceKey) {
+          const { createClient } = await import('@supabase/supabase-js')
+          const adminClient = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            serviceKey,
+            {
+              auth: {
+                autoRefreshToken: false,
+                persistSession: false
+              }
+            }
+          )
+
+          await adminClient.auth.admin.deleteUser(user.authUserId)
+        }
+      } catch (error: any) {
+        console.error('Error deleting auth user:', error)
+      }
+    }
+
     await prisma.user.delete({
       where: { id }
     })
@@ -222,10 +307,9 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ ok: true })
   } catch (err: any) {
     console.error('❌ Users DELETE Error:', err)
-    return NextResponse.json({ 
-      message: 'Interner Fehler', 
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined 
+    return NextResponse.json({
+      message: 'Interner Fehler',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     }, { status: 500 })
   }
 }
-

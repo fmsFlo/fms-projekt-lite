@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { verifyCredentials } from '@/lib/auth'
+import { createSupabaseClient } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -15,46 +15,57 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { email, password } = schema.parse(body)
 
-    const result = await verifyCredentials(email, password)
-    
-    if (!result) {
-      return NextResponse.json({ 
+    const supabase = createSupabaseClient()
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password: password.trim(),
+    })
+
+    if (error || !data.user || !data.session) {
+      console.error('Supabase Auth Error:', error?.message)
+      return NextResponse.json({
         error: 'Invalid credentials',
         message: 'Ungültige Zugangsdaten'
       }, { status: 401 })
     }
 
-    // Set cookie with proper options - Format: role:userId
-    // WICHTIG: cookies().set() funktioniert nicht in API Routes, verwende response.cookies.set()
-    const cookieValue = `${result.role}:${result.userId}`
-    const response = NextResponse.json({ 
-      success: true, 
-      ok: true, // Für Kompatibilität mit Frontend
-      role: result.role, 
-      user: { id: result.userId, role: result.role } 
+    const response = NextResponse.json({
+      success: true,
+      ok: true,
+      user: {
+        id: data.user.id,
+        email: data.user.email
+      }
     })
-    
-    response.cookies.set('session', cookieValue, {
+
+    const sevenDays = 7 * 24 * 60 * 60
+
+    response.cookies.set('sb-access-token', data.session.access_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24 * 7 // 7 days
+      maxAge: sevenDays
     })
 
-    console.log('✅ Login erfolgreich, Cookie gesetzt:', cookieValue)
+    response.cookies.set('sb-refresh-token', data.session.refresh_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: sevenDays
+    })
+
+    console.log('✅ Login erfolgreich via Supabase Auth')
     return response
   } catch (err: any) {
     console.error('❌ Login Error:', err)
-    console.error('❌ Error Stack:', err.stack)
     if (err?.name === 'ZodError') {
       return NextResponse.json({ message: 'Ungültige Eingabe', issues: err.issues }, { status: 400 })
     }
-    return NextResponse.json({ 
-      message: 'Interner Fehler', 
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined,
-      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    return NextResponse.json({
+      message: 'Interner Fehler',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     }, { status: 500 })
   }
 }
-

@@ -14,7 +14,6 @@
     "@sparticuz/chromium": "^143.0.4",
     "@supabase/supabase-js": "^2.95.3",
     "axios": "^1.13.5",
-    "bcryptjs": "^2.4.3",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.4",
     "handlebars": "^4.7.8",

@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { hashPassword } from '@/lib/auth'
-import crypto from 'crypto'
+import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -23,106 +22,84 @@ export async function POST(req: Request) {
 
     console.log('🔐 Reset Password Request:', { hasEmail: !!email, hasToken: !!token, hasNewPassword: !!newPassword })
 
-    // Passwort zurücksetzen mit Token
     if (token && newPassword) {
-      console.log('🔐 Passwort zurücksetzen mit Token...')
-      const data = resetPasswordSchema.parse({ token, newPassword })
-      
-      const user = await prisma.user.findFirst({
-        where: {
-          resetToken: data.token,
-          resetTokenExpires: {
-            gt: new Date()
-          },
-          isActive: true
-        }
-      })
-
-      if (!user) {
-        console.log('❌ Token ungültig oder abgelaufen')
-        return NextResponse.json({ message: 'Ungültiger oder abgelaufener Token' }, { status: 400 })
-      }
-
-      console.log('✅ Token gültig für User:', user.email)
-      const passwordHash = await hashPassword(data.newPassword)
-
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          passwordHash,
-          resetToken: null,
-          resetTokenExpires: null
-        }
-      })
-
-      console.log('✅ Passwort erfolgreich zurückgesetzt')
-      return NextResponse.json({ ok: true, message: 'Passwort erfolgreich zurückgesetzt' })
+      console.log('⚠️ Token-based reset not implemented with Supabase Auth')
+      return NextResponse.json({
+        message: 'Diese Funktion wird über Supabase Auth gehandhabt. Bitte verwenden Sie den Magic Link aus der E-Mail.'
+      }, { status: 400 })
     }
 
-    // Reset-Token anfordern
     console.log('🔐 Reset-Token anfordern für:', email)
     const data = requestResetSchema.parse({ email })
-    
-    // Teste Prisma-Verbindung
-    try {
-      await prisma.$connect()
-    } catch (connectError: any) {
-      console.error('❌ Prisma Connect Error:', connectError)
-    }
-    
+
     const user = await prisma.user.findFirst({
-      where: { 
+      where: {
         email: data.email.toLowerCase(),
-        isActive: true 
+        isActive: true
       }
     })
 
     if (!user) {
       console.log('❌ User nicht gefunden oder inaktiv:', data.email)
-      // Aus Sicherheitsgründen geben wir keine Auskunft, ob die E-Mail existiert
-      return NextResponse.json({ 
-        ok: true, 
-        message: 'Falls diese E-Mail-Adresse registriert ist, wurde ein Reset-Link gesendet.' 
+      return NextResponse.json({
+        ok: true,
+        message: 'Falls diese E-Mail-Adresse registriert ist, wurde ein Reset-Link gesendet.'
       })
     }
 
+    if (!user.authUserId) {
+      console.log('❌ User hat keine Supabase Auth ID:', data.email)
+      return NextResponse.json({
+        message: 'Benutzer ist nicht für Supabase Auth konfiguriert'
+      }, { status: 400 })
+    }
+
     console.log('✅ User gefunden:', user.email)
-    // Generiere Reset-Token
-    const resetToken = crypto.randomBytes(32).toString('hex')
-    const resetTokenExpires = new Date()
-    resetTokenExpires.setHours(resetTokenExpires.getHours() + 1) // Token gültig für 1 Stunde
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        resetToken,
-        resetTokenExpires
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!serviceKey) {
+      console.error('❌ SUPABASE_SERVICE_ROLE_KEY nicht konfiguriert')
+      return NextResponse.json({
+        message: 'Service nicht verfügbar. Bitte kontaktieren Sie den Administrator.'
+      }, { status: 500 })
+    }
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
       }
-    })
+    )
 
-    // In einer echten Anwendung würde hier eine E-Mail gesendet werden
-    // Für jetzt geben wir den Token zurück (nur für Entwicklung!)
-    // In Produktion sollte der Token per E-Mail gesendet werden
-    const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5001'}/reset-password?token=${resetToken}`
+    const redirectUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/reset-password`
 
-    console.log('🔐 Reset-Token für', user.email, ':', resetToken)
-    console.log('🔗 Reset-URL:', resetUrl)
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      data.email.toLowerCase(),
+      { redirectTo: redirectUrl }
+    )
 
-    return NextResponse.json({ 
-      ok: true, 
-      message: 'Falls diese E-Mail-Adresse registriert ist, wurde ein Reset-Link gesendet.',
-      // Nur in Entwicklung: Token zurückgeben
-      ...(process.env.NODE_ENV === 'development' && { token: resetToken, resetUrl })
+    if (error) {
+      console.error('❌ Supabase Auth Error:', error.message)
+    }
+
+    console.log('✅ Password reset email requested for:', user.email)
+
+    return NextResponse.json({
+      ok: true,
+      message: 'Falls diese E-Mail-Adresse registriert ist, wurde ein Reset-Link gesendet.'
     })
   } catch (err: any) {
     console.error('❌ Reset Password Error:', err)
     if (err?.name === 'ZodError') {
       return NextResponse.json({ message: 'Ungültige Eingabe', issues: err.issues }, { status: 400 })
     }
-    return NextResponse.json({ 
-      message: 'Interner Fehler', 
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined 
+    return NextResponse.json({
+      message: 'Interner Fehler',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     }, { status: 500 })
   }
 }
-
